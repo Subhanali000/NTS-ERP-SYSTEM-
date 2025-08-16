@@ -1,0 +1,901 @@
+const { supabase } = require('../config/supabase'); // ✅ correct
+
+const express = require('express');
+const router = express.Router();
+
+const path = require("path");
+exports.addEmployee = async (req, res) => {
+  try {
+    const {
+      email,
+      name,
+      phone,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+      employee_id,
+      position,
+      role,
+      department,
+      join_date,
+      annual_salary,
+      annual_leave_balance,
+      college,
+      internship_start_date,
+      internship_end_date,
+    } = req.body;
+
+    // Validate required fields
+    const requiredFields = {
+      email,
+      name,
+      emergency_contact_name,
+      emergency_contact_phone,
+      employee_id,
+      position,
+      role,
+      department,
+      join_date,
+    };
+
+    for (const [key, value] of Object.entries(requiredFields)) {
+      if (!value) {
+        return res.status(400).json({ error: `${key} is required` });
+      }
+    }
+
+    const validRoles = [
+      "employee",
+      "intern",
+      "senior_employee",
+      "team_lead",
+    ];
+    const validDepartments = [
+      "hr",
+      "operations",
+      "engineering",
+      "tech",
+      "business_development",
+      "quality_assurance",
+      "systems_integration",
+      "client_relations",
+    ];
+
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    if (!validDepartments.includes(department)) {
+      return res.status(400).json({ error: "Invalid department" });
+    }
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+   // 🔹 Handle profile photo upload
+let profilePhotoUrl = null;
+
+if (req.file) {
+  const fileExt = path.extname(req.file.originalname);
+  const fileName = `profile_photos/${Date.now()}_${employee_id}${fileExt}`;
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
+    .from("employee-media")
+    .upload(fileName, req.file.buffer, {
+      contentType: req.file.mimetype,
+    });
+
+  if (uploadError) {
+    return res.status(500).json({ error: "Image upload failed", details: uploadError.message });
+  }
+
+  const { data: publicUrlData } = supabase
+    .storage
+    .from("employee-media")
+    .getPublicUrl(fileName);
+
+  profilePhotoUrl = publicUrlData?.publicUrl || null;
+}
+console.log("supabase defined:", typeof supabase); // should be "object"
+
+
+    // 🔹 Get manager’s director_id
+    const { data: manager, error: managerError } = await supabase
+      .from("employees")
+      .select("director_id")
+      .eq("id", req.user.id)
+      .single();
+
+    if (managerError || !manager) {
+      return res.status(400).json({ error: "Manager not found or invalid" });
+    }
+
+    const directorId = manager.director_id;
+    if (!directorId) {
+      return res.status(400).json({ error: "Director not assigned to manager" });
+    }
+
+    // 🔹 Construct employee object
+    const employeeData = {
+      email,
+      password: "temppass",
+      name,
+      phone,
+      address,
+      emergency_contact_name,
+      emergency_contact_phone,
+      employee_id,
+      position,
+      role,
+      department,
+      manager_id: req.user.id,
+      director_id: directorId,
+      join_date,
+      annual_salary,
+      annual_leave_balance,
+      profile_photo_url: profilePhotoUrl,
+      college: role === "intern" ? college : null,
+      internship_start_date: role === "intern" ? internship_start_date : null,
+      internship_end_date: role === "intern" ? internship_end_date : null,
+    };
+
+    // 🔹 Insert employee into Supabase
+    const { data: employee, error: insertError } = await supabase
+      .from("employees")
+      .insert([employeeData])
+      .select()
+      .single();
+
+    if (insertError) {
+      return res.status(400).json({ error: insertError.message });
+    }
+
+    // 🔹 Update director's employee stats
+    const { data: director, error: directorError } = await supabase
+      .from("directors")
+      .select("total_employees, employee_ids")
+      .eq("id", directorId)
+      .single();
+
+    if (!directorError && director) {
+      const newEmployeeIds = [...(director.employee_ids || []), employee.id];
+      const newTotalEmployees = (director.total_employees || 0) + 1;
+
+      await supabase
+        .from("directors")
+        .update({
+          total_employees: newTotalEmployees,
+          employee_ids: newEmployeeIds,
+        })
+        .eq("id", directorId);
+    }
+
+    return res.status(201).json({
+      message: `${role} registered successfully`,
+      employee,
+    });
+  } catch (error) {
+    console.error("Add employee error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.viewTeamPerformance = async (req, res) => {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*, tasks(*), attendance(*), leaves(*), progress(*)')
+    .eq('manager_id', req.user.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json(data);
+};
+
+exports.CreateTask = async (req, res) => {
+  const { project_id, title, description, assignee, priority, due_date } = req.body;
+
+  const { data: employee, error: employeeError } = await supabase
+    .from('employees')
+    .select('id, manager_id')
+    .eq('id', assignee)
+    .single();
+
+  if (employeeError || !employee || employee.manager_id !== req.user.id) {
+    return res.status(403).json({ error: 'Invalid assignee or not under this manager' });
+  }
+
+  const { error } = await supabase.from('tasks').insert({
+    project_id,
+    user_id: assignee,
+    title,
+    description,
+    priority,
+    due_date,
+    assigned_by: req.user.id,
+    status: 'assigned',
+  });
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  res.status(201).json({ message: 'Task assigned successfully' });
+};
+
+
+  exports.approveLeave = async (req, res) => {
+ const { leave_id, status } = req.body;
+  const role = req.user.role;
+  const approverId = req.user.id;
+
+  // Step 1: Fetch leave details
+  const { data: leaveData, error: leaveError } = await supabase
+    .from('leaves')
+    .select('id, user_id, manager_approval, director_approval')
+    .eq('id', leave_id)
+    .single();
+
+  if (leaveError || !leaveData) {
+    return res.status(400).json({ error: leaveError?.message || 'Leave not found' });
+  }
+
+  // Step 2: Block COA if already approved
+  const isApproved = leaveData.manager_approval === 'approved' || leaveData.director_approval === 'approved';
+  if (role === 'coa' && isApproved) {
+    return res.status(403).json({ error: 'Leave already approved by manager or director' });
+  }
+
+  // Step 3: Role-specific approval
+  let updateFields = {};
+  if (role === 'manager') {
+    // Optional: Check manager owns this employee
+    const { data: empData, error: empError } = await supabase
+      .from('employees')
+      .select('manager_id')
+      .eq('id', leaveData.user_id)
+      .single();
+
+    if (empError || empData.manager_id !== approverId) {
+      return res.status(403).json({ error: 'Not authorized as manager' });
+    }
+
+    updateFields.manager_approval = status;
+  } else if (role === 'director') {
+    updateFields.director_approval = status;
+  } else if (role === 'coa') {
+    updateFields.coa_approval = status; // Optional
+  } else {
+    return res.status(403).json({ error: 'Invalid role' });
+  }
+
+  // Step 4: Update the record
+  const { data: updatedLeave, error: updateError } = await supabase
+    .from('leaves')
+    .update(updateFields)
+    .eq('id', leave_id)
+    .select()
+    .single();
+
+  if (updateError) {
+    return res.status(400).json({ error: updateError.message });
+  }
+
+  res.status(200).json(updatedLeave);
+};
+
+
+
+exports.applyLeave = async (req, res) => {
+  const { leave_type, start_date, end_date, reason } = req.body;
+
+  const { data, error } = await supabase.from("leaves").insert([
+    {
+      user_id: req.user.id,
+      leave_type,
+      start_date,
+      end_date,
+      reason,
+      manager_approval: "pending",
+      director_approval: "pending",
+    },
+  ]).select("*"); // 🧠 Get the inserted leave (optional)
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(201).json(data[0]); // ✅ Return the created leave
+};
+
+
+exports.getTeam = async (req, res) => {
+  const managerId = req.query.manager_id || req.user.managerId || req.user.id;
+
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('manager_id', managerId);
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  // ✅ Wrap in { data: ... }
+  res.status(200).json({ data });
+};
+
+exports.getTeamDetails = async (req, res) => {
+  try {
+    const managerId = req.user.id;
+    console.log("🔐 Manager ID:", managerId);
+
+    // 1. Table check (already working)
+    const { data: schemaTables, error: schemaErr } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public');
+
+    if (schemaErr) {
+      console.error("⚠️ Schema fetch error:", schemaErr);
+      return res.status(500).json({ error: 'Failed to fetch schema info' });
+    }
+
+    const tableNames = schemaTables.map(t => t.table_name);
+    const requiredTables = ['teams', 'employees', 'tasks'];
+    const missingTables = requiredTables.filter(t => !tableNames.includes(t));
+
+    if (missingTables.length > 0) {
+      console.warn("❌ Missing tables:", missingTables);
+      return res.status(500).json({ error: `Missing required table(s): ${missingTables.join(', ')}` });
+    }
+
+    // 2. Fetch teams
+    const { data: teams, error: teamError } = await supabase
+      .from('teams')
+      .select('id, name, icon, color')
+      .eq('manager_id', managerId);
+
+    if (teamError) {
+      console.error("❌ Team fetch error:", teamError.message);
+      return res.status(400).json({ error: teamError.message });
+    }
+
+    const formattedTeams = [];
+
+    for (const team of teams) {
+      console.log(`👥 Processing team: ${team.name} (${team.id})`);
+
+      // 3. Get team members
+      const { data: members, error: empError } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('team_id', team.id);
+
+      if (empError) {
+        console.error(`❌ Error fetching members for team ${team.id}:`, empError.message);
+        return res.status(400).json({ error: empError.message });
+      }
+
+      const memberIds = members.map((m) => m.id);
+
+      // 4. Get their tasks
+      if (memberIds.length === 0) {
+        console.log(`ℹ️ No members in team ${team.id}, skipping task query.`);
+        formattedTeams.push({
+          id: team.id,
+          name: team.name,
+          icon: team.icon || '👥',
+          color: team.color || 'from-indigo-500 to-purple-600',
+          members: 0,
+          activeTasks: 0,
+          completedTasks: 0,
+          progress: 0
+        });
+        continue;
+      }
+
+      const { data: tasks, error: taskError } = await supabase
+        .from('tasks')
+        .select('status')
+        .in('user_id', memberIds);
+
+      if (taskError) {
+        console.error(`❌ Error fetching tasks for team ${team.id}:`, taskError.message);
+        return res.status(400).json({ error: taskError.message });
+      }
+
+      const activeTasks = tasks.filter((t) => t.status === 'in_progress').length;
+      const completedTasks = tasks.filter((t) => t.status === 'completed').length;
+      const totalTasks = activeTasks + completedTasks;
+
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      formattedTeams.push({
+        id: team.id,
+        name: team.name,
+        icon: team.icon || '👥',
+        color: team.color || 'from-indigo-500 to-purple-600',
+        members: memberIds.length,
+        activeTasks,
+        completedTasks,
+        progress,
+      });
+    }
+
+    console.log("✅ Final formatted team data:", formattedTeams);
+    res.status(200).json(formattedTeams);
+  } catch (err) {
+    console.error('🔥 Unexpected error in getTeamDetails:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+
+exports.getEmployees = async (req, res) => {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('manager_id', req.user.id)
+    .eq('role', 'employee');
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json(data);
+};
+
+exports.getInterns = async (req, res) => {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('*')
+    .eq('manager_id', req.user.id)
+    .eq('role', 'intern');
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json(data);
+};
+
+exports.createProject = async (req, res) => {
+  const { title, description, start_date, end_date } = req.body;
+  if (!title || !start_date) return res.status(400).json({ error: 'Title and start date are required' });
+
+  const directorId = (await supabase.from('employees').select('director_id').eq('id', req.user.id).single()).data.director_id;
+
+  const { data, error } = await supabase
+    .from('projects')
+    .insert([{
+      title,
+      description,
+      director_id: directorId,
+      manager_id: req.user.id,
+      start_date,
+      end_date,
+      status: 'planning',
+    }])
+    .select()
+    .single();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'Project created', project: data });
+};
+
+exports.getTeamProgress = async (req, res) => {
+  const { data: employees, error: empError } = await supabase
+    .from('employees')
+    .select('id')
+    .eq('manager_id', req.user.id);
+
+  if (empError) return res.status(400).json({ error: empError.message });
+
+  const employeeIds = employees.map(e => e.id);
+  const { data, error } = await supabase
+    .from('progress')
+    .select('*')
+    .in('user_id', employeeIds);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json(data);
+};
+
+exports.getActiveProjects = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('status', 'active'); // ✅ Only filter by 'active' status
+
+    if (error) return res.status(400).json({ error: error.message });
+
+    res.status(200).json({ data });
+  } catch (err) {
+    console.error('Server error:', err);
+    res.status(500).json({ error: 'Failed to fetch active projects' });
+  }
+};
+//team task 
+exports.getTasks = async (req, res) => {
+  try {
+    const managerId = req.query.manager_id || req.user?.managerId || req.user?.id;
+
+    if (!managerId) {
+      return res.status(400).json({ error: "Manager ID is required" });
+    }
+
+    // Get all tasks assigned by this manager
+    const { data: tasks, error: taskError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('assigned_by', managerId);
+
+    if (taskError) {
+      console.error('❌ Supabase error (tasks):', taskError.message);
+      return res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+
+    // Get latest progress per task
+    const { data: progresses, error: progressError } = await supabase
+      .from('progress')
+      .select('task_id, progress_percent, created_at')
+      .order('created_at', { ascending: false });
+
+    if (progressError) {
+      console.error('❌ Supabase error (progress):', progressError.message);
+      return res.status(500).json({ error: "Failed to fetch task progress" });
+    }
+
+    // Map: task_id → latest progress
+    const latestProgressMap = new Map();
+
+    for (const row of progresses) {
+      if (!latestProgressMap.has(row.task_id)) {
+        latestProgressMap.set(row.task_id, row.progress_percent);
+      }
+    }
+
+    // Combine tasks with their progress_percent
+    const enrichedTasks = tasks.map(task => ({
+      ...task,
+      progress_percent: latestProgressMap.get(task.id) ?? 0,
+    }));
+
+    return res.status(200).json(enrichedTasks);
+  } catch (err) {
+    console.error('❌ Server error:', err.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+exports.approveLeaves = async (req, res) => {
+  try {
+    const { leaveId, status, comments, role } = req.body;
+
+    if (!leaveId || !status || !role) {
+      return res.status(400).json({ error: "leaveId, status, and role are required" });
+    }
+
+    const updateData = {
+      comments,
+    };
+
+    // Update appropriate field based on role
+    if (role === 'manager') {
+      updateData.manager_approval = status;
+    } else if (role === 'director') {
+      updateData.director_approval = status;
+    } else {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    // ✅ Use .select().single() to return the updated row
+    const { data, error } = await supabase
+      .from("leaves")
+      .update(updateData)
+      .eq("id", leaveId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("❌ Error in approveLeaves:", err.message);
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+};
+
+
+
+exports.getLeaves = async (req, res) => {
+  try {
+    const managerId = req.user.id; // this is the logged-in user
+    if (!managerId) {
+      return res.status(400).json({ error: 'Manager ID is missing in token' });
+    }
+
+    // 1. Fetch employees reporting to this manager
+    const { data: employees, error: empError } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('manager_id', managerId);
+
+    if (empError) {
+      return res.status(500).json({ error: 'Failed to fetch employees' });
+    }
+
+    const employeeIds = employees.map(emp => emp.id);
+
+    // Also include manager's own ID
+    const allUserIds = [...employeeIds, managerId];
+
+    // 2. Fetch leave requests for both employees + manager
+    const { data: leaves, error } = await supabase
+      .from('leaves')
+      .select(`
+        *,
+        employee:employees (name, department)
+      `)
+      .in('user_id', allUserIds);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.status(200).json(leaves);
+  } catch (err) {
+    console.error('❌ getLeaves error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
+exports.getProgressreports = async (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    let employeeIds = [];
+
+    // 1. Determine employees based on role
+    if (userRole === 'employee') {
+      employeeIds = [userId];
+    } else if (userRole === 'manager') {
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('manager_id', userId);
+      if (error) throw error;
+      employeeIds = employees.map(e => e.id);
+    } else if (userRole === 'director') {
+      const { data: managers, error: mgrError } = await supabase
+        .from('managers')
+        .select('id')
+        .eq('director_id', userId);
+      if (mgrError) throw mgrError;
+
+      const managerIds = managers.map(m => m.id);
+
+      if (managerIds.length > 0) {
+        const { data: employees, error: empError } = await supabase
+          .from('employees')
+          .select('id')
+          .in('manager_id', managerIds);
+        if (empError) throw empError;
+
+        employeeIds = employees.map(e => e.id);
+      }
+    } else {
+      return res.status(403).json({ error: 'Unauthorized role' });
+    }
+
+    // ✅ Always include the logged-in user's own ID
+    const allUserIds = [...employeeIds, userId];
+
+    console.log('[ProgressReports] User:', userId, '| Role:', userRole);
+    console.log('[ProgressReports] Fetched employeeIds (including self):', allUserIds);
+
+    if (allUserIds.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // 2. Fetch reports for all relevant users
+    const { data: reports, error: reportError } = await supabase
+      .from('progress_reports')
+      .select('*')
+      .in('user_id', allUserIds);
+
+    if (reportError) {
+      console.error('[ProgressReports] Error fetching reports:', reportError.message);
+      return res.status(400).json({ error: reportError.message });
+    }
+
+    console.log(`[ProgressReports] Found ${reports.length} report(s).`);
+
+    const enrichedReports = [];
+
+    for (const report of reports) {
+      let taskIds = [];
+
+      // 3. Parse task_completed (stringified or array)
+      try {
+        if (Array.isArray(report.task_completed)) {
+          taskIds = report.task_completed;
+        } else if (typeof report.task_completed === 'string') {
+          taskIds = JSON.parse(report.task_completed);
+        }
+      } catch (e) {
+        console.warn(`[ProgressReports] Invalid task_completed JSON in report ${report.id}:`, e.message);
+      }
+
+      // 4. Fetch tasks
+      let taskDetails = [];
+      if (taskIds.length > 0) {
+        const { data: tasks, error: taskError } = await supabase
+          .from('tasks')
+          .select('id, title')
+          .in('id', taskIds);
+
+        if (taskError) {
+          console.warn(`[ProgressReports] Failed to fetch tasks for report ${report.id}:`, taskError.message);
+        } else {
+          const taskMap = new Map(tasks.map(t => [t.id, t.title || 'Untitled Task']));
+          taskDetails = taskIds.map(id =>
+            taskMap.has(id) ? { id, title: taskMap.get(id) } : { id, title: 'Unknown Task' }
+          );
+        }
+      }
+
+      // 5. Enrich and return
+      enrichedReports.push({
+        ...report,
+        taskCount: taskIds.length,
+        tasks: taskDetails,
+        submittedAt: report.submitted_at || report.created_at || null,
+      });
+    }
+
+    console.log(`[ProgressReports] Returning ${enrichedReports.length} enriched report(s).`);
+    return res.status(200).json(enrichedReports);
+  } catch (err) {
+    console.error('[ProgressReports] Internal Error:', err.message || err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+
+
+
+exports.approvestatusProgressReport = async (req, res) => {
+  const reportId = req.params.id;
+  const { managerFeedback, approved } = req.body;
+
+  const user = req.user;
+
+  if (!user || !user.id || !user.role) {
+    return res.status(401).json({ error: 'Unauthorized. User info missing.' });
+  }
+
+  if (!reportId || typeof approved !== 'boolean') {
+    return res.status(400).json({ error: 'Valid report ID and approval status are required.' });
+  }
+
+  // Fetch the report
+  const { data: report, error: fetchError } = await supabase
+    .from('progress_reports')
+    .select('id, user_id, approved_at')
+    .eq('id', reportId)
+    .single();
+
+  if (fetchError || !report) {
+    return res.status(404).json({ error: 'Progress report not found.' });
+  }
+
+  // ❌ Prevent self-approval
+  if (report.user_id === user.id) {
+    return res.status(403).json({ error: 'You cannot review your own report.' });
+  }
+
+  // ❌ Prevent re-review
+  if (report.approved_at) {
+    return res.status(400).json({ error: 'This report has already been reviewed.' });
+  }
+
+  // ✅ Role-based Access Control
+  if (user.role === 'manager') {
+    const { data: employee, error: userFetchError } = await supabase
+      .from('employees')
+      .select('id, manager_id')
+      .eq('id', report.user_id)
+      .single();
+
+    if (userFetchError || !employee) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+
+    if (employee.manager_id !== user.id) {
+      return res.status(403).json({ error: 'You can only review reports from your direct reports.' });
+    }
+  } else if (user.role !== 'director') {
+    return res.status(403).json({ error: 'Only managers or directors can approve/reject reports.' });
+  }
+
+  // ✅ Update only `status` and review fields
+  const { error: updateError } = await supabase
+    .from('progress_reports')
+    .update({
+      status: approved ? 'approved' : 'rejected',
+      approved_by: user.id,
+      approved_by_role: user.role,
+      approved_at: new Date().toISOString(),
+      manager_feedback: managerFeedback || null,
+    })
+    .eq('id', reportId);
+
+  if (updateError) {
+    return res.status(400).json({ error: updateError.message });
+  }
+
+  return res.status(200).json({ message: 'Report reviewed successfully.' });
+};
+
+
+
+//above and belw are both diffrent
+exports.approveProgressReport = async (req, res) => {
+  const { reportId, status } = req.body;
+  if (!reportId || !status) return res.status(400).json({ error: 'reportId and status are required' });
+
+  const { error } = await supabase
+    .from('reports')
+    .update({ manager_approval: status })
+    .eq('id', reportId);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.status(200).json({ message: 'Report approval status updated' });
+};
+exports.getProgress = async (req, res) => {
+  const { data, error } = await supabase
+    .from('progress')
+    .select('*')
+    .eq('user_id', req.user.id);
+
+  if (error) return res.status(400).json({ error: error.message });
+
+  res.status(200).json(data);
+};
+// In controllers/managerController.js or .ts
+
+exports.submitProgressReport = async (req, res) => {
+  try {
+    const {
+  report_date,
+  accomplishments,
+  challenges,
+  tomorrow_plan,
+  task_completed,
+  progress_percent,
+} = req.body;
+
+
+    const user = req.user;
+
+    // Required field check
+    if (!accomplishments) {
+      return res.status(400).json({ error: 'Accomplishments are required' });
+    }
+
+    const { data, error } = await supabase.from('progress_reports').insert([
+      {
+        user_id: user.id,
+        role: user.role || 'manager',
+        report_date: report_date || new Date().toISOString().split('T')[0],
+        accomplishments,
+        challenges: challenges || null,
+        tomorrow_plan: tomorrow_plan || null,
+        task_completed: task_completed ?? [],
+        progress_percent: progress_percent ?? 0,
+        submitted_at: new Date().toISOString(),
+      },
+    ]);
+
+    if (error) {
+      console.error('❌ Supabase insert error:', error.message);
+      return res.status(500).json({ success: false, message: 'Failed to submit report' });
+    }
+
+    res.status(201).json({ success: true, message: 'Progress submitted', report: data?.[0] });
+  } catch (err) {
+    console.error('❗ Unexpected server error:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to submit report' });
+  }
+};
