@@ -93,12 +93,17 @@ useEffect(() => {
       }
 
       // Parse JSON responses
-      const [userData, tasks, leaveRequests, progressData] = await Promise.all([
-        safeJson(userRes),
-        safeJson(tasksRes),
-        safeJson(leaveRes),
-        safeJson(progressRes),
-      ]);
+      const [userData, tasksRaw, leaveRequests, progressData] = await Promise.all([
+  safeJson(userRes),
+  safeJson(tasksRes),
+  safeJson(leaveRes),
+  safeJson(progressRes),
+]);
+// Ensure tasks is always an array
+const tasks = Array.isArray(tasksRaw)
+  ? tasksRaw
+  : tasksRaw?.tasks ?? []; // if API wraps in { tasks: [...] }
+
 
       // 🔄 Add progress percentage to each task
       const enrichedTasks = tasks.map((task: any) => {
