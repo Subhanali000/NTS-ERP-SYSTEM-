@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import { formatDate, formatDateTime, getCurrentDate } from '../utils/dateUtils';
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 interface DailyProgressEntry {
   id: string;
   date: string;
@@ -41,7 +41,7 @@ const DailyProgress: React.FC = () => {
     const fetchProgress = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:8000/api/employee/daily-progress', {
+        const response = await fetch(`${baseURL}/api/employee/daily-progress`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -83,7 +83,7 @@ const DailyProgress: React.FC = () => {
 
       const token = localStorage.getItem('token');
 
-      const response = await fetch('http://localhost:8000/api/employee/daily-progress', {
+      const response = await fetch(`${baseURL}/api/employee/daily-progress`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`
