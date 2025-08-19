@@ -19,8 +19,8 @@ import {
 } from '../utils/documentGenerator';
 const Documents: React.FC = () => {
   const user = getCurrentUser();
-  const isDir = isDirector(user?.role);
-  const isMgr = isManager(user?.role);
+  const isDir = isDirector(user?.role ?? '');
+  const isMgr = isManager(user?.role ?? '');
   const [searchTerm, setSearchTerm] = useState('');
 const [selectedType, setSelectedType] = useState('');
 const [showGenerateForm, setShowGenerateForm] = useState(false);
@@ -47,7 +47,7 @@ interface DocumentData {
   url: string;
   is_protected?: boolean;
 }
- 
+ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
   const fetchDocuments = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -57,7 +57,7 @@ interface DocumentData {
 
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/documents', {
+      const response = await axios.get(`${baseURL}/api/documents`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDocuments(response.data);
@@ -77,7 +77,7 @@ const handleDownload = async (doc: DocumentData): Promise<void> => {
   try {
     const token = localStorage.getItem("token");
 
-    const response = await fetch("http://localhost:8000/api/documents/download", {
+    const response = await fetch(`${baseURL}/api/documents/download`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -136,7 +136,7 @@ const handleDownload = async (doc: DocumentData): Promise<void> => {
       return;
     }
 
-    const profileRes = await axios.get('http://localhost:8000/api/user/profile', {
+    const profileRes = await axios.get(`${baseURL}/api/user/profile`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
