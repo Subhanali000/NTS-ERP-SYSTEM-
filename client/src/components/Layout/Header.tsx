@@ -46,24 +46,35 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const [user, setUser] = useState<User>({ id: '', name: '', role: '' });
 
   const userRoleLabel = localStorage.getItem('userRoleLabel') || 'Employee';
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+  const fetchUser = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-      try {
-        const response = await axios.get('http://localhost:8000/api/user/profile', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUser(response.data);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
+    try {
+      const response = await axios.get(`${baseURL}/api/user/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    fetchUser();
-  }, []);
+      // Map backend fields to frontend state
+      const userData = {
+        id: response.data.id,
+        name: response.data.name,
+        role: response.data.role || 'Employee',
+        avatar: response.data.profile_photo || 'https://via.placeholder.com/32',
+        email: response.data.email,
+      };
+
+      console.log('Mapped user profile:', userData); // ✅ Check in console
+      setUser(userData);
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  fetchUser();
+}, []);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -72,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
       try {
         const role = getSimpleDesignation(user.role || 'employee');
-        const response = await axios.get(`http://localhost:8000/api/${role}/notifications`, {
+        const response = await axios.get(`${baseURL}/api/${role}/notifications`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setNotifications(response.data);
@@ -90,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
     try {
       const role = getSimpleDesignation(user.role || 'employee');
       await axios.patch(
-        `http://localhost:8000/api/${role}/notifications/${notificationId}/read`,
+        `${baseURL}/api/${role}/notifications/${notificationId}/read`,
         {},
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
@@ -106,7 +117,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const deleteNotification = async (notificationId: string) => {
     try {
       const role = getSimpleDesignation(user.role || 'employee');
-      await axios.delete(`http://localhost:8000/api/${role}/notifications/${notificationId}`, {
+      await axios.delete(`${baseURL}/api/${role}/notifications/${notificationId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
@@ -288,22 +299,22 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
             </div>
 
             {/* Profile Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                 <img
-                src={user.avatar || 'https://via.placeholder.com/32'}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.role}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
+<div className="relative">
+  <button
+    onClick={() => setShowProfileMenu(!showProfileMenu)}
+    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+  >
+    <img
+      src={user?.avatar || 'https://via.placeholder.com/32'}
+      alt={user?.name || 'User Avatar'}
+      className="w-8 h-8 rounded-full object-cover"
+    />
+    <div className="text-left">
+      <p className="text-sm font-medium text-gray-900">{user?.name || 'User Name'}</p>
+      <p className="text-xs text-gray-500">{user?.role || userRoleLabel}</p>
+    </div>
+    <ChevronDown className="w-4 h-4 text-gray-400" />
+  </button>
 
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
