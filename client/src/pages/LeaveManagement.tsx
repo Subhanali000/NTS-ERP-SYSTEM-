@@ -6,21 +6,20 @@ import {
   XCircle,
   Plus,
   Filter,
-  User,
+
   Send,
   MessageSquare,
-  AlertTriangle,
-  FileText,
+
 } from "lucide-react";
 import {  isDirector, isManager } from "../utils/auth";
 import { formatDate, getRelativeDate } from "../utils/dateUtils";
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const LeaveManagement: React.FC = () => {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
   // const [approvalComments, setApprovalComments] = useState("");
-  
+  const [showPopup, setShowPopup] = useState(false);
   const normalizeRole = (role: string) => {
   const lower = role.toLowerCase();
   if (["employee", "intern"].includes(lower)) return "employee";
@@ -37,6 +36,7 @@ const LeaveManagement: React.FC = () => {
 const [activeTab, setActiveTab] = useState<'my-requests' | 'approvals'>('my-requests');
 
 
+const [showDateErrorPopup, setShowDateErrorPopup] = useState(false);
 
   const [users, setUsers] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
@@ -108,7 +108,7 @@ const pendingApprovals = leaveRequests.filter((lr) => {
     });
 
     const res = await fetch(
-      `http://localhost:8000/api/${role}/approve-leaves`,
+      `${baseURL}/api/${role}/approve-leaves`,
       {
         method: "POST",
         headers,
@@ -168,7 +168,7 @@ const pendingApprovals = leaveRequests.filter((lr) => {
         }
         // Fetch logged-in user
         const authUserRes = await fetch(
-          "http://localhost:8000/api/user/profile",
+          `${baseURL}/api/user/profile`,
           { headers }
         );
         if (!authUserRes.ok) throw new Error("Failed to fetch user");
@@ -179,13 +179,13 @@ const pendingApprovals = leaveRequests.filter((lr) => {
 
         const leaveUrl =
           role === "employee" || role === "intern"
-            ? "http://localhost:8000/api/employee/leaves"
-            : `http://localhost:8000/api/${role}/leaves`;
+            ? `${baseURL}/api/employee/leaves`
+            : `${baseURL}/api/${role}/leaves`;
 
         // Fetch leaves and users in parallel
         const [leaveRes, userListRes] = await Promise.all([
           fetch(leaveUrl, { headers }),
-          fetch("http://localhost:8000/api/users", { headers }),
+          fetch(`${baseURL}/api/users`, { headers }),
         ]);
 
         if (!leaveRes.ok || !userListRes.ok)
@@ -241,25 +241,26 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
     fetchData();
   }, []);
   const fetchAndSetLeaveRequests = async () => {
-    if (!user) return;
+  if (!user) return;
 
-    const token = localStorage.getItem("token");
-    const role = normalizeRole(user.role);
-    const headers = { Authorization: `Bearer ${token}` };
+  const token = localStorage.getItem("token");
+  const role = normalizeRole(user.role);
+  const headers = { Authorization: `Bearer ${token}` };
 
-    try {
-      let allLeaves: any[] = [];
+  try {
+    let allLeaves: any[] = [];
 
-      // 1. Fetch own leave requests
+    // ✅ Employees: only fetch their own leaves
+    if (role === "employee") {
       const ownLeavesRes = await fetch(
-        "http://localhost:8000/api/employee/leaves",
+        `${baseURL}/api/employee/leaves`,
         { headers }
       );
       if (!ownLeavesRes.ok) throw new Error("Failed to fetch own leaves");
 
       const ownLeaves = await ownLeavesRes.json();
 
-      const mappedOwn = ownLeaves.map((leave: any) => ({
+      allLeaves = ownLeaves.map((leave: any) => ({
         id: leave.id,
         userId: leave.user_id,
         type: leave.leave_type,
@@ -272,51 +273,46 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
         directorApproval: leave.director_approval,
         createdAt: leave.created_at,
       }));
-
-      allLeaves = [...mappedOwn];
-
-      // 2. If manager or director, fetch only employee/intern requests (not other managers/directors)
-      if (role === "manager" || role === "director") {
-        const teamLeavesRes = await fetch(
-          `http://localhost:8000/api/${role}/leaves`,
-          { headers }
-        );
-        if (!teamLeavesRes.ok)
-          throw new Error("Failed to fetch employee leaves");
-
-        const teamLeaves = await teamLeavesRes.json();
-console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.userId === user.id));
-
-        console.log("Team leaves:", teamLeaves);
-        const mappedEmployees = teamLeaves
-          .filter((leave: any) => {
-            const requester = users.find((u) => u.id === leave.user_id);
-            return (
-              requester &&
-              ["employee", "intern"].includes(normalizeRole(requester.role))
-            );
-          })
-          .map((leave: any) => ({
-            id: leave.id,
-            userId: leave.user_id,
-            type: leave.leave_type,
-            startDate: leave.start_date,
-            endDate: leave.end_date,
-            comments: leave.comments,
-            status: leave.status?.toLowerCase(),
-            managerApproval: leave.manager_approval,
-            directorApproval: leave.director_approval,
-            createdAt: leave.created_at,
-          }));
-
-        allLeaves = [...allLeaves, ...mappedEmployees];
-      }
-
-      setLeaveRequests(allLeaves);
-    } catch (err) {
-      console.error("Error fetching updated leave list:", err);
     }
-  };
+
+    // ✅ Managers/Directors: only fetch team leaves
+    if (role === "manager" || role === "director") {
+      const teamLeavesRes = await fetch(
+        `${baseURL}/api/${role}/leaves`,
+        { headers }
+      );
+      if (!teamLeavesRes.ok) throw new Error("Failed to fetch team leaves");
+
+      const teamLeaves = await teamLeavesRes.json();
+
+      allLeaves = teamLeaves
+        .filter((leave: any) => {
+          const requester = users.find((u) => u.id === leave.user_id);
+          return (
+            requester &&
+            ["employee", "intern"].includes(normalizeRole(requester.role))
+          );
+        })
+        .map((leave: any) => ({
+          id: leave.id,
+          userId: leave.user_id,
+          type: leave.leave_type,
+          startDate: leave.start_date,
+          endDate: leave.end_date,
+          comments: leave.comments,
+          status: leave.status?.toLowerCase(),
+          managerApproval: leave.manager_approval,
+          directorApproval: leave.director_approval,
+          createdAt: leave.created_at,
+        }));
+    }
+
+    setLeaveRequests(allLeaves);
+  } catch (err) {
+    console.error("Error fetching updated leave list:", err);
+  }
+};
+
 
   const handleLeaveSubmission = async (formData: any) => {
     try {
@@ -332,7 +328,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
         
       };
 
-      const res = await fetch(`http://localhost:8000/api/${role}/leave`, {
+      const res = await fetch(`${baseURL}/api/${role}/leave`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -359,7 +355,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
         const fallbackRole = normalizeRole(user.role);
         const token = localStorage.getItem("token");
         const updatedRes = await fetch(
-          `http://localhost:8000/api/${fallbackRole}/leaves`,
+          `${baseURL}/api/${fallbackRole}/leaves`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -387,23 +383,38 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
     }
   };
 
-  const LEAVE_QUOTA = 20;
-  const approvedLeaves = leaveRequests.filter(
-    (lr) => lr.userId === user?.id && lr.status === "approved"
-  );
-  const usedDays = approvedLeaves.reduce((sum, lr) => {
-    const start = new Date(lr.startDate);
-    const end = new Date(lr.endDate);
-    return (
-      sum +
-      Math.max(
-        1,
-        Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-      )
-    );
-  }, 0);
+const LEAVE_QUOTA = 20;
 
-  const remainingDays = Math.max(0, LEAVE_QUOTA - usedDays);
+// ✅ Count only approved leaves belonging to this user
+const approvedLeaves = leaveRequests.filter(
+  (lr) =>
+    lr.userId === user?.id &&
+    (
+      lr.status === "approved" ||
+      lr.managerApproval === "approved" ||
+      lr.directorApproval === "approved"
+    )
+);
+
+const usedDays = approvedLeaves.reduce((sum, lr) => {
+  const start = new Date(lr.startDate);
+  const end = new Date(lr.endDate);
+
+  // 🔑 Normalize times to midnight to avoid timezone off-by-one
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  // Inclusive days difference
+  const days = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+
+  return sum + (days > 0 ? days : 1); // Always at least 1 day
+}, 0);
+
+const remainingDays = Math.max(0, LEAVE_QUOTA - usedDays);
+
+//////handle  calulation of balance whiel applying leaves 
+
+
 
   const filteredRequests = (requests: any[]) => {
     return requests.filter((request) => {
@@ -464,11 +475,42 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
         </div>
       );
     }
+const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+  if (remainingDays <= 0) {
+    // 🚨 No balance at all
+    setShowNoBalancePopup(true);
+    return; // ❌ stop further date selection
+  }
 
+  setFormData((prev) => {
+    const updated = { ...prev, [field]: value };
+
+    if (updated.startDate && updated.endDate) {
+      const start = new Date(updated.startDate);
+      const end = new Date(updated.endDate);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      const diffDays =
+        (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24) + 1;
+
+      if (diffDays > remainingDays) {
+        setShowDateErrorPopup(true); // 🚨 too many days selected
+        return prev; // ❌ don’t accept invalid range
+      }
+    }
+
+    return updated;
+  });
+};
     if (!user) return null;
-    return (
+
+  return (
+    <>
+      {/* Main Leave Form */}
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-md relative">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-900">
               Request Leave
@@ -479,6 +521,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Leave Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Leave Type *
@@ -498,6 +541,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               </select>
             </div>
 
+            {/* Start Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Start Date *
@@ -505,12 +549,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               <input
                 type="date"
                 value={formData.startDate}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    startDate: e.target.value,
-                  }))
-                }
+                onChange={(e) => handleDateChange("startDate", e.target.value)}
                 className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.startDate ? "border-red-300" : "border-gray-300"
                 }`}
@@ -520,6 +559,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               )}
             </div>
 
+            {/* End Date */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 End Date *
@@ -527,9 +567,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               <input
                 type="date"
                 value={formData.endDate}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, endDate: e.target.value }))
-                }
+                onChange={(e) => handleDateChange("endDate", e.target.value)}
                 className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.endDate ? "border-red-300" : "border-gray-300"
                 }`}
@@ -539,6 +577,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               )}
             </div>
 
+            {/* Reason */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Reason *
@@ -559,6 +598,7 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
               )}
             </div>
 
+            {/* Action Buttons */}
             <div className="flex space-x-3 pt-4">
               <button
                 type="submit"
@@ -578,8 +618,31 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
           </form>
         </div>
       </div>
-    );
-  };
+
+      {/* 🚨 Error Popup - Always overlays above */}
+      {showDateErrorPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-80 text-center">
+            <h3 className="text-lg font-semibold text-orange-600 mb-2">
+              📅 Invalid Selection
+            </h3>
+            <p className="text-gray-700 mb-4">
+              You selected more days than your remaining leave balance of{" "}
+              <span className="font-bold">{remainingDays}</span>. <br />
+              Please pick fewer days.
+            </p>
+            <button
+              onClick={() => setShowDateErrorPopup(false)}
+              className="mt-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
   const ApprovalModal = ({ requestId }: { requestId: string }) => {
   const [approvalComments, setApprovalComments] = useState("");
@@ -598,7 +661,12 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
     return <div className="text-center text-red-500 py-4">Requester not found</div>;
   }
 
-  const disableActions = request.managerApproval === "approved" || request.directorApproval === "approved";
+  const disableActions =
+  request.managerApproval === "approved" ||
+  request.managerApproval === "rejected" ||
+  request.directorApproval === "approved" ||
+  request.directorApproval === "rejected";
+
   const daysDifference =
     Math.ceil((new Date(request.endDate).getTime() - new Date(request.startDate).getTime()) / (1000 * 3600 * 24)) + 1;
 
@@ -734,32 +802,56 @@ console.log("🧾 Filtered My Requests:", leaveRequests.filter(leave => leave.us
           </p>
         </div>
         {user && (
-          <button
-            onClick={() => setShowRequestForm(true)}
-            className="mt-2 text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Request Leave</span>
-          </button>
-        )}
+  <button
+    onClick={() => {
+      if (remainingDays <= 0) {
+        setShowPopup(true); // ✅ show popup when clicked
+      } else {
+        setShowRequestForm(true); // open form if balance > 0
+      }
+    }}
+    className="mt-2 text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
+  >
+    <Plus className="w-4 h-4" />
+    <span>Request Leave</span>
+  </button>
+)}
+
+</div>
+
+{/* Leave Balance Card - Only for employees */}
+{!canApprove && user && (
+  <div className="bg-gradient-to-r from-green-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Leave Balance</h2>
+        <p className="text-green-100">Available days for this year</p>
       </div>
+      <div className="text-right">
+        <div className="text-4xl font-bold">{remainingDays}</div>
+        <p className="text-green-100">days remaining</p>
+      </div>
+    </div>
+  </div>
+)}
 
-      {/* Leave Balance Card - Only for employees */}
-      {!canApprove && user && (
-        <div className="bg-gradient-to-r from-green-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold mb-2">Leave Balance</h2>
-              <p className="text-green-100">Available days for this year</p>
-            </div>
-            <div className="text-right">
-              <div className="text-4xl font-bold">{remainingDays}</div>
-
-              <p className="text-green-100">days remaining</p>
-            </div>
-          </div>
-        </div>
-      )}
+{/* Popup Modal */}
+{showPopup && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="bg-white rounded-xl shadow-lg p-6 w-80 text-center animate-fadeIn">
+      <h3 className="text-lg font-semibold text-red-600 mb-2">⚠️ No Leave Balance</h3>
+      <p className="text-gray-700 mb-4">
+        You have already used all your {LEAVE_QUOTA} leave days for this year.
+      </p>
+      <button
+        onClick={() => setShowPopup(false)}
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-800 transition"
+      >
+        OK
+      </button>
+    </div>
+  </div>
+)}
 
       {canApprove && (
   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -1331,3 +1423,7 @@ return (
 };
 
 export default LeaveManagement;
+function setShowNoBalancePopup(arg0: boolean) {
+  throw new Error("Function not implemented.");
+}
+
