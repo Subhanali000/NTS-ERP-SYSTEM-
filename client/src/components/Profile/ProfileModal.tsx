@@ -17,10 +17,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const [isSaving, setIsSaving] = useState(false);
 
 
-   const departmentName = user && user.department ? user.department.replace('_', ' ') : 'Unknown';
+   const departmentName = user.department ? user.department.replace('_', ' ') : 'Unknown';
   const [profileData, setProfileData] = useState({
-    name: user?.name,
-    email: user?.email,
+    name: user.name,
+    email: user.email,
     phone: '',
     address: '',
     bio: '',
@@ -133,17 +133,13 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
         body: JSON.stringify(profileData),
       });
 
+      
       if (!res.ok) throw new Error('Failed to update profile');
       const updatedUser = await res.json();
       setCurrentUser(updatedUser);
       setIsEditing(false);
       console.log('✅ Profile updated successfully');
-    console.log(
-  "Role Rendered:",
-  user?.role ?? "undefined",
-  "→",
-  user?.role ? getRoleDisplayName(user.role) : "N/A"
-);
+      console.log("Role Rendered:", user.role, "→", getRoleDisplayName(user.role));
 
 
     } catch (err) {
@@ -226,8 +222,8 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
         <div className="flex items-center space-x-6">
           <div className="relative">
             <img
-              src={user?.avatar}
-              alt={user?.name}
+              src={user.avatar}
+              alt={user.name}
               className="w-24 h-24 rounded-full object-cover ring-4 ring-white shadow-lg"
             />
             <button className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg">
@@ -235,11 +231,10 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
             </button>
           </div>
           <div className="flex-1">
-            <h3 className="text-2xl font-bold text-gray-900">{user?.name}</h3>
+            <h3 className="text-2xl font-bold text-gray-900">{user.name}</h3>
             <p className="text-lg text-gray-600">
-  {user?.role ? getRoleDisplayName(user.role) : "N/A"}
+  {getRoleDisplayName(user.role)}
 </p>
-
 
             <p className="text-sm text-gray-500 capitalize">
   {departmentName} Department
@@ -248,14 +243,11 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
             <div className="mt-3 flex items-center space-x-4">
               <div className="flex items-center space-x-1 text-sm text-gray-600">
                 <Calendar className="w-4 h-4" />
-               <span>
-  Joined {user?.joinDate ? new Date(user.joinDate).toLocaleDateString() : "N/A"}
-</span>
-
+                <span>Joined {new Date(user.joinDate).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center space-x-1 text-sm text-gray-600">
                 <Briefcase className="w-4 h-4" />
-                <span>{user?.leaveBalance} days leave balance</span>
+                <span>{user.leaveBalance} days leave balance</span>
               </div>
             </div>
           </div>
@@ -458,22 +450,20 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-600">Employee ID:</span>
-                <span className="ml-2 font-medium text-gray-900">{user?.id.toUpperCase()}</span>
+                <span className="ml-2 font-medium text-gray-900">{user.id.toUpperCase()}</span>
               </div>
               <div>
                 <span className="text-gray-600">Department:</span>
-                <span className="ml-2 font-medium text-gray-900 capitalize"> {user?.department ? user.department.replace('_', ' ') : "N/A"}</span>
+                <span className="ml-2 font-medium text-gray-900 capitalize">{user.department.replace('_', ' ')}</span>
               </div>
               <div>
-  <span className="text-gray-600">Role:</span>
-  <span className="ml-2 font-medium text-gray-900">{user?.role ? getRoleDisplayName(user.role) : "N/A"}</span>
-</div>
-             <div>
-  <span className="text-gray-600">Join Date:</span>
-  <span className="ml-2 font-medium text-gray-900">
-    {user?.joinDate ? new Date(user.joinDate).toLocaleDateString() : "N/A"}
-  </span>
-</div>
+                <span className="text-gray-600">Role:</span>
+                <span className="ml-2 font-medium text-gray-900">{getRoleDisplayName(user.role)}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Join Date:</span>
+                <span className="ml-2 font-medium text-gray-900">{new Date(user.joinDate).toLocaleDateString()}</span>
+              </div>
             </div>
           </div>
         </div>
