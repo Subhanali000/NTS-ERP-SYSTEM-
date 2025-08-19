@@ -54,7 +54,7 @@ const safeJson = async (response: Response) => {
     return [];
   }
 };
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const EmployeeDashboard: React.FC = () => {
   const authUser = getCurrentUser();
   const user = getCurrentUser(); // used in punch out
@@ -82,10 +82,10 @@ useEffect(() => {
 
       // Fetch all required data in parallel
       const [userRes, tasksRes, leaveRes, progressRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/employee/profile`, { headers }),
-        fetch(`http://localhost:8000/api/employee/tasks`, { headers }),
-        fetch(`http://localhost:8000/api/employee/leaves`, { headers }),
-        fetch(`http://localhost:8000/api/employee/progress`, { headers }),
+        fetch(`${baseURL}/api/employee/profile`, { headers }),
+        fetch(`${baseURL}/api/employee/tasks`, { headers }),
+        fetch(`${baseURL}/api/employee/leaves`, { headers }),
+        fetch(`${baseURL}/api/employee/progress`, { headers }),
       ]);
 
       if (!userRes.ok || !tasksRes.ok || !leaveRes.ok || !progressRes.ok) {
@@ -93,17 +93,18 @@ useEffect(() => {
       }
 
       // Parse JSON responses
-      const [userData, tasksRaw, leaveRequests, progressData] = await Promise.all([
+    // Parse JSON responses
+const [userData, tasksRaw, leaveRequests, progressData] = await Promise.all([
   safeJson(userRes),
   safeJson(tasksRes),
   safeJson(leaveRes),
   safeJson(progressRes),
 ]);
+
 // Ensure tasks is always an array
 const tasks = Array.isArray(tasksRaw)
   ? tasksRaw
   : tasksRaw?.tasks ?? []; // if API wraps in { tasks: [...] }
-
 
       // 🔄 Add progress percentage to each task
       const enrichedTasks = tasks.map((task: any) => {
@@ -176,6 +177,17 @@ console.log("⏺️ Raw leaveRequests from backend", leaveRequests);
   }, 0);
 
   const remainingDays = Math.max(0, LEAVE_QUOTA - usedDays);
+  
+
+  
+ const [showNoBalancePopup, setShowNoBalancePopup] = useState(false);
+ const handleApplyClick = () => {
+    if (remainingDays === 0) {
+      setShowNoBalancePopup(true); // 🚨 show popup instead of form
+    } else {
+      setShowLeaveForm(true);
+    }
+  };
 
   const completedTasks = myTasks.filter(
     (t) => t.status?.toLowerCase() === "completed"
@@ -257,7 +269,7 @@ console.log("⏺️ Raw leaveRequests from backend", leaveRequests);
           userId: user.id,
         };
 
-        const res = await fetch(`http://localhost:8000/api/${role}/leave`, {
+        const res = await fetch(`${baseURL}/api/${role}/leave`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -463,7 +475,7 @@ const ProgressReportForm: React.FC<ProgressReportFormProps> = ({
       console.log("📤 Sending progress update payload:", payload);
 
       const res = await fetch(
-        `http://localhost:8000/api/${user.role}/update-task-progress`,
+        `${baseURL}/api/${user.role}/update-task-progress`,
         {
           method: "POST",
           headers: {
@@ -643,7 +655,7 @@ const handlePunchIn = async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("Unauthorized");
 
-    const res = await fetch(`http://localhost:8000/api/employee/attendance`, {
+    const res = await fetch(`${baseURL}/api/employee/attendance`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -680,7 +692,7 @@ const handlePunchOut = async () => {
     if (!token || !user?.id) throw new Error("Unauthorized");
 
     const res = await fetch(
-      `http://localhost:8000/api/employee/attendance/${today}`,
+      `${baseURL}/api/employee/attendance/${today}`,
       {
         method: "PUT",
         headers: {
@@ -766,14 +778,48 @@ const handlePunchOut = async () => {
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button
-            onClick={() => setShowLeaveForm(true)}
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left group"
-          >
-            <Calendar className="w-6 h-6 text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
-            <h4 className="font-medium text-gray-900">Apply for Leave</h4>
-            <p className="text-sm text-gray-600">Submit a new leave request</p>
-          </button>
+           {/* Apply Leave Button */}
+      <button
+        onClick={handleApplyClick}
+        className={`p-4 border border-gray-200 rounded-lg text-left group transition-colors ${
+          remainingDays === 0
+            ? "bg-gray-100 text-gray-400"
+            : "hover:bg-gray-50 cursor-pointer"
+        }`}
+      >
+        <Calendar
+          className={`w-6 h-6 mb-2 group-hover:scale-110 transition-transform ${
+            remainingDays === 0 ? "text-gray-400" : "text-blue-500"
+          }`}
+        />
+        <h4 className="font-medium text-gray-900">Apply for Leave</h4>
+        <p className="text-sm text-gray-600">
+          {remainingDays === 0
+            ? "No leave days remaining"
+            : "Submit a new leave request"}
+        </p>
+      </button>
+      {/* Popup Modal */}
+      {showNoBalancePopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm text-center">
+            <h3 className="text-lg font-semibold text-red-600 mb-2">
+              No Leave Balance
+            </h3>
+            <p className="text-gray-600 mb-4">
+              You have no remaining leave days available.
+            </p>
+            <button
+              onClick={() => setShowNoBalancePopup(false)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+
           <button
             onClick={handlePunchToggle}
             className={`p-4 border border-gray-200 rounded-lg transition-colors text-left group hover:bg-gray-50 ${
@@ -903,32 +949,47 @@ const handlePunchOut = async () => {
         </div>
 
         {myLeaveRequests.length === 0 ? (
-          <div className="text-center py-8">
-            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500">No leave requests yet</p>
-            <button
-              onClick={() => setShowLeaveForm(true)}
-              className="mt-2 text-blue-600 hover:text-blue-800 font-medium"
-            >
-              Apply for leave
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-  {myLeaveRequests.slice(0, 3).map((request) => {
-    const days =
-      Math.ceil(
-        (new Date(request.end_date).getTime() -
-          new Date(request.start_date).getTime()) /
-          (1000 * 3600 * 24)
-      ) + 1;
+  <div className="text-center py-8">
+    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+    <p className="text-gray-500">No leave requests yet</p>
+    <button
+      onClick={() => setShowLeaveForm(true)}
+      disabled={remainingDays === 0} // 🚫 Disable when no days left
+      className={`mt-2 font-medium ${
+        remainingDays === 0
+          ? "text-gray-400 cursor-not-allowed"
+          : "text-blue-600 hover:text-blue-800"
+      }`}
+    >
+      Apply for leave
+    </button>
+    {remainingDays === 0 && (
+      <p className="text-red-500 mt-2 text-sm">
+        You have no remaining leave days left
+      </p>
+    )}
+  </div>
+) : (
+  <div className="space-y-3">
+    {myLeaveRequests.slice(0, 3).map((request) => {
+      // ✅ More accurate leave days calculation
+      const start = new Date(request.start_date);
+      const end = new Date(request.end_date);
 
-    const status =
-      request.status === "approved"
-        ? "Approved"
-        : request.status === "rejected"
-        ? "Rejected"
-        : "Pending";
+      // Include both start & end date, ensure at least 1 day
+      const days =
+        Math.max(
+          1,
+          Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+
+      const status =
+        request.status === "approved"
+          ? "Approved"
+          : request.status === "rejected"
+          ? "Rejected"
+          : "Pending";
+
 
     return (
       <div
