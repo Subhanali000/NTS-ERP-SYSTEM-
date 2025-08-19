@@ -21,7 +21,7 @@ interface Project {
   name: string;
   tasks?: Task[];
 }
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const Projects: React.FC = () => {
   
   const user = getCurrentUser();
@@ -79,7 +79,7 @@ const loadInitialData = async () => {
     // Load projects (for managers/directors)
     if (canManageProjects) {
       const projectsRes = await axios.get(
-        `http://localhost:8000/api/${simplifiedRole}/active-projects`,
+        `${baseURL}/api/${simplifiedRole}/active-projects`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -103,10 +103,10 @@ const loadInitialData = async () => {
     // 👉 For Director: Load both managers and employees
     if (isDirector(user?.role ?? '')) {
       const [managersRes, employeesRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/director/managers', {
+        axios.get(`${baseURL}/api/director/managers`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get('http://localhost:8000/api/director/employees', {
+        axios.get(`${baseURL}/api/director/employees`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -131,7 +131,7 @@ const loadInitialData = async () => {
 
     // 👉 For Manager: Load team members
     if (isManager(user?.role?? '')) {
-      const teamRes = await axios.get('http://localhost:8000/api/manager/users/team', {
+      const teamRes = await axios.get(`${baseURL}/api/manager/users/team`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -219,7 +219,7 @@ const handleCreateProject = async (projectData: any) => {
     console.log("📤 Sending project creation request with data:", JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
-      `http://localhost:8000/api/${simplifiedRole}/create-project`,
+      `${baseURL}/api/${simplifiedRole}/create-project`,
       payload,
       {
         headers: {
@@ -265,7 +265,7 @@ const handleProjectApproval = async (
     `);
 
     const response = await axios.post(
-      'http://localhost:8000/api/director/approve-project',
+      `${baseURL}/api/director/approve-project`,
       {
         project_id: projectId,
         approval_comments: approvalComments || '', // matches backend
@@ -310,7 +310,7 @@ const handleProjectApproval = async (
       if (!token) throw new Error('No authentication token found');
 
       await axios.post(
-        'http://localhost:8000/api/manager/assigne-task-employee',
+        `${baseURL}/api/manager/assigne-task-employee`,
         {
           project_id: projectId,
           employee_ids: employeeIds,
@@ -336,7 +336,7 @@ await loadInitialData();
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No authentication token found');
 
-        await axios.delete(`http://localhost:8000/api/${simplifiedRole}/delete-projects/${projectId}`, {
+        await axios.delete(`${baseURL}/api/${simplifiedRole}/delete-projects/${projectId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -375,7 +375,7 @@ const handleUpdateProject = async (projectId: string, updateData: any) => {
     console.log('🚀 Sending update data with tasks:', JSON.stringify(dataToSend, null, 2));
 
     await axios.put(
-      `http://localhost:8000/api/director/update-project/${projectId}`,
+      `${baseURL}/api/director/update-project/${projectId}`,
       dataToSend,
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -646,10 +646,10 @@ const getPriorityColor = (priority: string) => {
                               onChange={() => toggleAssignedManager(member.id)}
                             />
                             <img
-                              src={member.avatar || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
-                              alt={member.name}
-                              className="w-10 h-10 rounded-full object-cover"
-                            />
+  src={member.profile_photo || "https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg"}
+  alt={member.name}
+  className="w-8 h-8 rounded-full object-cover"
+/>
                             <div className="flex-1">
                               <p className="font-medium text-gray-900">{member.name}</p>
                               <p className="text-sm text-gray-600">{getRoleDisplayName(member.role)}</p>
@@ -779,7 +779,7 @@ const getPriorityColor = (priority: string) => {
           {/* Manager Card */}
           <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-lg">
             <img
-              src={manager.avatar || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+              src={manager.profile_photo || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
               alt={manager.name}
               className="w-12 h-12 rounded-full object-cover"
             />
@@ -1002,7 +1002,7 @@ const ViewProjectModal = ({ projectId, edit = false }: { projectId: string; edit
                     <h4 className="font-medium text-gray-900 mb-2">Project Manager</h4>
                     <div className="flex items-center space-x-3">
                       <img
-                        src={manager.avatar || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+                        src={manager.profile_photo || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
                         alt={manager.name}
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -1163,7 +1163,7 @@ interface User {
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
                         <img
-                          src={employee.avatar || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+                          src={employee.profile_photo || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
                           alt={employee.name}
                           className="w-10 h-10 rounded-full object-cover"
                         />
@@ -1226,7 +1226,7 @@ useEffect(() => {
     try {
       const simplifiedRole = getSimpleDesignation(user?.role ?? "employee");
 
-      const res = await fetch(`http://localhost:8000/api/${simplifiedRole}/tasks`, {
+      const res = await fetch(`${baseURL}/api/${simplifiedRole}/tasks`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
 
@@ -1414,7 +1414,7 @@ if (user?.role === "employee") {
         {/* Project Manager */}
         <div className="flex items-center space-x-3 mb-4 p-3 bg-gray-50 rounded-lg">
           <img
-            src={manager?.avatar || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
+            src={manager?.profile_photo || `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop`}
             alt={manager?.name}
             className="w-8 h-8 rounded-full object-cover"
           />
