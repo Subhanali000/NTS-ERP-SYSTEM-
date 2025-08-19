@@ -21,6 +21,8 @@ interface AddEmployeeProps {
 }
 
 const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
+  
+ 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -28,6 +30,10 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
     role: "employee",
     department: "engineering",
     joinDate: new Date().toISOString().split("T")[0],
+     dob: "", // <-- new field
+  bio: "", // <-- new field
+  github_profile_link: "", // <-- new field
+  linkedin_profile_link: "", // <-- new field
     annual_salary: "",
     address: "",
     emergency_contact_name: "",
@@ -49,7 +55,7 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
   const roles = [
     { value: "employee", label: "Employee" },
     { value: "intern", label: "Intern" },
-    { value: "senior_employee", label: "Senior Employee" },
+    
     { value: "team_lead", label: "Team Lead" },
   ];
 
@@ -64,7 +70,11 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
     { value: "client_relations", label: "Client Relations" },
   ];
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
+React.useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -75,6 +85,23 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
     if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
     if (!formData.annual_salary.trim())
       newErrors.annual_salary = "Annual salary is required";
+    if (!formData.dob.trim()) newErrors.dob = "Date of birth is required";
+if (!formData.bio.trim()) newErrors.bio = "Bio is required";
+// Optional: validate URLs
+if (
+  formData.github_profile_link &&
+  !/^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_-]+$/.test(
+    formData.github_profile_link
+  )
+)
+  newErrors.github_profile_link = "Enter a valid GitHub profile URL";
+if (
+  formData.linkedin_profile_link &&
+  !/^https?:\/\/(www\.)?linkedin\.com\/in\/[A-Za-z0-9_-]+$/.test(
+    formData.linkedin_profile_link
+  )
+)
+  newErrors.linkedin_profile_link = "Enter a valid LinkedIn profile URL";
     if (!formData.emergency_contact_name.trim())
       newErrors.emergency_contact_name = "Emergency contact name is required";
     if (!formData.emergency_contact_phone.trim())
@@ -124,7 +151,7 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
                 .split("T")[0]
             : null,
       });
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const multipartForm = new FormData();
       multipartForm.append("name", formData.name);
       multipartForm.append("email", formData.email);
@@ -134,6 +161,10 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
       multipartForm.append("join_date", formData.joinDate);
       multipartForm.append("annual_salary", formData.annual_salary);
       multipartForm.append("address", formData.address);
+      multipartForm.append("dob", formData.dob);
+multipartForm.append("bio", formData.bio);
+multipartForm.append("github_profile", formData.github_profile_link);
+multipartForm.append("linkedin_profile", formData.linkedin_profile_link);
       multipartForm.append(
         "emergency_contact_name",
         formData.emergency_contact_name
@@ -172,7 +203,7 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
       }
 
       const response = await axios.post(
-        "http://localhost:8000/api/manager/add-employee",
+        `${baseURL}/api/manager/add-employee`,
         multipartForm,
         {
           headers: {
@@ -347,6 +378,96 @@ const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
                       </p>
                     )}
                   </div>
+{/* DOB */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    Date of Birth *
+  </label>
+  <input
+    type="date"
+    name="dob"
+    value={formData.dob}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.dob ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+  />
+  {errors.dob && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.dob}</span>
+    </p>
+  )}
+</div>
+
+{/* Bio */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    Bio
+  </label>
+  <textarea
+    name="bio"
+    value={formData.bio}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.bio ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="Write a short bio"
+  />
+  {errors.bio && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.bio}</span>
+    </p>
+  )}
+</div>
+
+{/* GitHub Profile */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    GitHub Profile
+  </label>
+  <input
+    type="url"
+    name="github_profile_link"
+    value={formData.github_profile_link}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.github_profile_link ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="https://github.com/username"
+  />
+  {errors.github_profile_link && (
+  <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+    <X className="w-4 h-4" />
+    <span>{errors.github_profile_link}</span>
+  </p>
+
+  )}
+</div>
+
+{/* LinkedIn Profile */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    LinkedIn Profile
+  </label>
+  <input
+    type="url"
+    name="linkedin_profile_link"
+    value={formData.linkedin_profile_link}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.linkedin_profile_link ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="https://linkedin.com/in/username"
+  />
+  {errors.linkedin_profile_link && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.linkedin_profile_link}</span>
+    </p>
+  )}
+</div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
