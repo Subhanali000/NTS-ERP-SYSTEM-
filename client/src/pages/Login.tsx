@@ -17,6 +17,30 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const isFormValid = email.trim() && password.trim();
 
+const baseURLs = [
+  import.meta.env.VITE_API_URL,
+  "http://localhost:8000"
+].filter(Boolean); // remove undefined if VITE_API_URL not set
+
+async function fetchWithFallback(path: string, options?: RequestInit) {
+  let lastError: any = null;
+
+  for (const url of baseURLs) {
+    const fullURL = `${url}${path}`;
+    console.log("🌍 Trying API URL:", fullURL);
+
+    try {
+      const response = await fetch(fullURL, options);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response;
+    } catch (err) {
+      lastError = err;
+      console.warn(`⚠️ Failed to reach ${fullURL}:`, err);
+    }
+  }
+
+  throw new Error(`All API URLs failed. Last error: ${lastError}`);
+}
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
@@ -24,13 +48,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
-    try {
-      // Step 1: Send login request
-      const response = await fetch('http://localhost:8000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+  // Step 1: Send login request
+  console.log("🌍 Using API baseURL:", fetchWithFallback);
+
+  const response = await fetchWithFallback(`/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
 
       const data = await response.json();
       if (!response.ok || !data.token) {
@@ -41,7 +67,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       localStorage.setItem('token', data.token);
 
       // Step 3: Fetch user profile
-      const profileResponse = await fetch('http://localhost:8000/api/user/profile', {
+     const profileResponse = await fetchWithFallback(`/api/user/profile`, {
         headers: {
           Authorization: `Bearer ${data.token}`,
         },
