@@ -6,7 +6,7 @@ interface AddEmployeeProps {
   onClose: () => void;
   onSave: (employee: any) => void;
 }
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
   const currentUser = getCurrentUser();
   const [formData, setFormData] = useState({
@@ -61,7 +61,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token found');
 
-      const response = await fetch('http://localhost:8000/api/director/managers', {
+      const response = await fetch(`${baseURL}/api/director/managers`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (!response.ok) {
@@ -106,7 +106,7 @@ useEffect(() => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/director/add-employee', {
+      const response = await fetch(`${baseURL}/api/director/add-employee`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
