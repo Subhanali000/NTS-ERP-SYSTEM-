@@ -45,7 +45,7 @@ interface ApprovalModalProps {
     status: "approved" | "rejected"
   ) => void;
 }
-
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const ApprovalModal: React.FC<ApprovalModalProps> = ({
   report,
   onClose,
@@ -531,7 +531,7 @@ const fetchReports = async () => {
     const role = getUserAccessLevel(user.role);
 
     const res = await fetch(
-      `http://localhost:8000/api/${role}/progress-report`,
+      `${baseURL}/api/${role}/progress-report`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -604,7 +604,7 @@ const fetchReports = async () => {
 const fetchTeam = async () => {
   try {
     const token = localStorage.getItem("token");
-    const endpoint = `http://localhost:8000/api/users`;
+    const endpoint = `${baseURL}/api/users`;
 
     console.log("📡 Fetching team from:", endpoint);
 
@@ -689,7 +689,7 @@ const handleReviewReport = async (
     const role = getUserAccessLevel(user.role);
 
     const res = await fetch(
-      `http://localhost:8000/api/${role}/approve-progress-report/${reportId}`,
+      `${baseURL}/api/${role}/approve-progress-report/${reportId}`,////for director
       {
         method: "POST",
         headers: {
@@ -732,7 +732,7 @@ const handleReviewReport = async (
       const role = user?.role;
 
       const res = await fetch(
-        `http://localhost:8000/api/${role}/progress-report`,
+        `${baseURL}/api/${role}/progress-report`,
         {
           method: "POST",
           headers: {
@@ -781,7 +781,7 @@ const fetchTasks = async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("No auth token found");
 
-    const res = await fetch(`http://localhost:8000/api/employee/tasks`, {
+    const res = await fetch(`${baseURL}/api/employee/tasks`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
