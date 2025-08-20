@@ -24,5 +24,5 @@ router.get('/leaves', employeeController.getLeaves);
 router.get('/tasks', employeeController.getTasks);
 router.get('/progress-report', employeeController.getProgressreport);
 router.get('/progress', employeeController.getProgress);
-
+router.get('/overview', employeeController.getOverview);
 module.exports = router;
