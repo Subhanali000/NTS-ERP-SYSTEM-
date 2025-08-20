@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import {  isDirector, isManager } from "../utils/auth";
 import { formatDate, getRelativeDate } from "../utils/dateUtils";
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const LeaveManagement: React.FC = () => {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -108,7 +108,7 @@ const pendingApprovals = leaveRequests.filter((lr) => {
     });
 
     const res = await fetch(
-      `${baseURL}/api/${role}/approve-leaves`,
+      `https://nts-erp-system-629k.vercel.app/api/${role}/approve-leaves`,
       {
         method: "POST",
         headers,
@@ -168,7 +168,7 @@ const pendingApprovals = leaveRequests.filter((lr) => {
         }
         // Fetch logged-in user
         const authUserRes = await fetch(
-          `${baseURL}/api/user/profile`,
+          `https://nts-erp-system-629k.vercel.app/api/user/profile`,
           { headers }
         );
         if (!authUserRes.ok) throw new Error("Failed to fetch user");
@@ -179,13 +179,13 @@ const pendingApprovals = leaveRequests.filter((lr) => {
 
         const leaveUrl =
           role === "employee" || role === "intern"
-            ? `${baseURL}/api/employee/leaves`
-            : `${baseURL}/api/${role}/leaves`;
+            ? `https://nts-erp-system-629k.vercel.app/api/employee/leaves`
+            : `https://nts-erp-system-629k.vercel.app/api/${role}/leaves`;
 
         // Fetch leaves and users in parallel
         const [leaveRes, userListRes] = await Promise.all([
           fetch(leaveUrl, { headers }),
-          fetch(`${baseURL}/api/users`, { headers }),
+          fetch(`https://nts-erp-system-629k.vercel.app/api/users`, { headers }),
         ]);
 
         if (!leaveRes.ok || !userListRes.ok)
@@ -253,7 +253,7 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
     // ✅ Employees: only fetch their own leaves
     if (role === "employee") {
       const ownLeavesRes = await fetch(
-        `${baseURL}/api/employee/leaves`,
+        `https://nts-erp-system-629k.vercel.app/api/employee/leaves`,
         { headers }
       );
       if (!ownLeavesRes.ok) throw new Error("Failed to fetch own leaves");
@@ -278,7 +278,7 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
     // ✅ Managers/Directors: only fetch team leaves
     if (role === "manager" || role === "director") {
       const teamLeavesRes = await fetch(
-        `${baseURL}/api/${role}/leaves`,
+        `https://nts-erp-system-629k.vercel.app/api/${role}/leaves`,
         { headers }
       );
       if (!teamLeavesRes.ok) throw new Error("Failed to fetch team leaves");
@@ -328,7 +328,7 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
         
       };
 
-      const res = await fetch(`${baseURL}/api/${role}/leave`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/leave`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -355,7 +355,7 @@ mappedLeaves.forEach((leave: { id: any; comments: any; }) => {
         const fallbackRole = normalizeRole(user.role);
         const token = localStorage.getItem("token");
         const updatedRes = await fetch(
-          `${baseURL}/api/${fallbackRole}/leaves`,
+          `https://nts-erp-system-629k.vercel.app/api/${fallbackRole}/leaves`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
