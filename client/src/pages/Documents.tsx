@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify'; // <-- Import toast
-import "react-toastify/dist/ReactToastify.css"; // optional, depending on version
+import "react-toastify/dist/ReactToastify.css"; // only if needed
 import {
   FileText,
   Plus,
@@ -47,7 +47,7 @@ interface DocumentData {
   url: string;
   is_protected?: boolean;
 }
- const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+ 
   const fetchDocuments = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -57,7 +57,7 @@ interface DocumentData {
 
     try {
       setLoading(true);
-      const response = await axios.get(`${baseURL}/api/documents`, {
+      const response = await axios.get(`https://nts-erp-system-629k.vercel.app/api/documents`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDocuments(response.data);
@@ -77,7 +77,7 @@ const handleDownload = async (doc: DocumentData): Promise<void> => {
   try {
     const token = localStorage.getItem("token");
 
-    const response = await fetch(`${baseURL}/api/documents/download`, {
+    const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/documents/download`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -136,7 +136,7 @@ const handleDownload = async (doc: DocumentData): Promise<void> => {
       return;
     }
 
-    const profileRes = await axios.get(`${baseURL}/api/user/profile`, {
+    const profileRes = await axios.get(`https://nts-erp-system-629k.vercel.app/api/user/profile`, {
       headers: { Authorization: `Bearer ${token}` }
     });
 
