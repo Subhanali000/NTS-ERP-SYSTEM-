@@ -15,6 +15,68 @@ exports.updateAttendance = async (req, res) => {
   res.status(200).json({ message: 'Attendance updated successfully' });
 };
 
+exports.getOverview = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Helper to format date as YYYY-MM-DD
+    const formatDate = (d) => {
+      const date = new Date(d);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const today = formatDate(new Date());
+
+    // 1️⃣ Tasks
+    const { data: tasks, error: taskError } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId);
+    if (taskError) throw taskError;
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === "completed").length;
+
+    // 2️⃣ All leaves (no filtering by user or approval)
+    const { data: leaves, error: leaveError } = await supabase
+      .from("leaves")
+      .select("*"); // fetch everything
+    if (leaveError) throw leaveError;
+
+    console.log(`Fetched ${leaves.length} total leaves from DB`);
+
+    // 3️⃣ Daily Progress Status
+    const { data: progress, error: progressError } = await supabase
+      .from("daily_progress")
+      .select("date")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(1);
+    if (progressError) throw progressError;
+
+    let dailyProgressStatus = "No Update";
+    if (progress?.length) {
+      const lastDate = formatDate(progress[0].date);
+      dailyProgressStatus =
+        lastDate === today ? "submitted" : `Last submitted on ${lastDate}`;
+    }
+
+    // ✅ Response
+    res.json({
+      totalTasks,
+      completedTasks,
+      dailyProgressStatus,
+      leaves, // send all leaves; frontend filters by user and status
+    });
+
+  } catch (err) {
+    console.error("Error fetching employee overview:", err.message);
+    res.status(500).json({ error: "Server error fetching overview" });
+  }
+};
 
 // ✅ Submit Attendance
 exports.submitAttendance = async (req, res) => {
