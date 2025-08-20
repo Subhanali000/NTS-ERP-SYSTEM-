@@ -21,7 +21,7 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const DirectorDashboard: React.FC = () => {
   const user = getCurrentUser();
   const [activeTab, setActiveTab] = useState<'director' | 'manager' | 'employee'>('director');
@@ -45,7 +45,7 @@ const DirectorDashboard: React.FC = () => {
         if (!token) throw new Error('No authentication token found');
 
         // Fetch users
-        const usersResponse = await fetch(`${baseURL}/api/director/employees`, {
+        const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!usersResponse.ok) throw new Error(await usersResponse.text());
@@ -53,7 +53,7 @@ const DirectorDashboard: React.FC = () => {
         setEnhancedUsers(usersData);
 
         // Fetch managers
-        const managersResponse = await fetch(`${baseURL}/api/director/managers`, {
+        const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!managersResponse.ok) throw new Error(await managersResponse.text());
@@ -61,7 +61,7 @@ const DirectorDashboard: React.FC = () => {
         setManagers(managersData);
 
         // Fetch tasks
-      const tasksResponse = await fetch(`${baseURL}/api/director/tasks`, {
+      const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
 });
 
@@ -74,7 +74,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
 
 
         // Fetch progress reports
-        const progressResponse = await fetch(`${baseURL}/api/director/progress-report`, {
+        const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!progressResponse.ok) throw new Error(await progressResponse.text());
@@ -82,7 +82,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
         setProgressReports(progressData);
 
         // Fetch projects
-        const projectsResponse = await fetch(`${baseURL}/api/director/active-projects`, {
+        const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
@@ -90,7 +90,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
         setProjects(projectsData.active_projects || []);
 
         // Fetch attendance
-        const attendanceResponse = await fetch(`${baseURL}/api/director/attendance`, {
+        const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
