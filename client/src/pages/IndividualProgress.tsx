@@ -39,7 +39,6 @@ interface Task {
   user_id: string;
    progressPct?: number; 
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const IndividualProgress: React.FC = () => {
   const user = getCurrentUser();
   const [selectedUser, setSelectedUser] = useState<string>('');
@@ -58,7 +57,7 @@ const IndividualProgress: React.FC = () => {
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No authentication token found');
 
-        const response = await axios.get(`${baseURL}/api/director/managers`, {
+        const response = await axios.get(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setManagers(Array.isArray(response.data) ? response.data : response.data?.data || []);
