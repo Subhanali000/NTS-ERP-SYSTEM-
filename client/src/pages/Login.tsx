@@ -26,7 +26,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
       // Step 1: Send login request
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const response = await fetch('https://nts-erp-system-629k.vercel.app/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -41,7 +41,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       localStorage.setItem('token', data.token);
 
       // Step 3: Fetch user profile
-      const profileResponse = await fetch('http://localhost:8000/api/user/profile', {
+      const profileResponse = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
         headers: {
           Authorization: `Bearer ${data.token}`,
         },
