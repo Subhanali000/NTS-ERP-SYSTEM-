@@ -57,7 +57,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     loginAlerts: true,
     deviceManagement: true
   });
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
   useEffect(() => {
     const fetchAll = async () => {
       const token = localStorage.getItem('token');
@@ -65,7 +65,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
       try {
         // Fetch profile
-        const profileRes = await fetch(`${baseURL}/api/user/profile`, {
+        const profileRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!profileRes.ok) throw new Error('Failed to fetch profile');
@@ -85,7 +85,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
         }));
 
         // Fetch settings
-        const settingsRes = await fetch(`${baseURL}/api/user/settings`, {
+        const settingsRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/settings', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (settingsRes.ok) {
@@ -96,7 +96,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 
         // Fetch security settings
-        const securityRes = await fetch(`${baseURL}/api/user/security`, {
+        const securityRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/security', {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (securityRes.ok) {
@@ -124,7 +124,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseURL}/api/user/profile`, {
+      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -133,14 +133,12 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
         body: JSON.stringify(profileData),
       });
 
-      
       if (!res.ok) throw new Error('Failed to update profile');
       const updatedUser = await res.json();
       setCurrentUser(updatedUser);
       setIsEditing(false);
       console.log('✅ Profile updated successfully');
       console.log("Role Rendered:", user.role, "→", getRoleDisplayName(user.role));
-
 
     } catch (err) {
       console.error('❌ Error saving profile:', err);
@@ -153,7 +151,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseURL}/api/user/settings`, {
+      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +185,7 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${baseURL}/api/user/security`, {
+      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/security', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
