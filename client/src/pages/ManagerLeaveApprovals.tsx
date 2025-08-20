@@ -38,7 +38,7 @@ interface LeaveRequest {
   approvedBy?: string;
   approvedAt?: string;
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const ManagerLeaveApprovals: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -92,7 +92,7 @@ const fetchManagerAndTeamLeaves = async () => {
   }
 
   try {
-    const response = await fetch(`${baseURL}/api/director/manager-team-leaves`, {
+    const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/manager-team-leaves`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -129,7 +129,7 @@ const fetchManagerAndTeamLeaves = async () => {
     }
 
     try {
-     const response = await fetch(`${baseURL}/api/director/leaves/${leaveId}/director-approve`, {
+     const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/leaves/${leaveId}/director-approve`, {
 
         method: 'PATCH',
         headers: {
