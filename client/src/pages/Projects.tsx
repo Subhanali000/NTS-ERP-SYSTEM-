@@ -21,7 +21,7 @@ interface Project {
   name: string;
   tasks?: Task[];
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const Projects: React.FC = () => {
   
   const user = getCurrentUser();
@@ -79,7 +79,7 @@ const loadInitialData = async () => {
     // Load projects (for managers/directors)
     if (canManageProjects) {
       const projectsRes = await axios.get(
-        `${baseURL}/api/${simplifiedRole}/active-projects`,
+        `https://nts-erp-system-629k.vercel.app/api/${simplifiedRole}/active-projects`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -103,10 +103,10 @@ const loadInitialData = async () => {
     // 👉 For Director: Load both managers and employees
     if (isDirector(user?.role ?? '')) {
       const [managersRes, employeesRes] = await Promise.all([
-        axios.get(`${baseURL}/api/director/managers`, {
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        axios.get(`${baseURL}/api/director/employees`, {
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -131,7 +131,7 @@ const loadInitialData = async () => {
 
     // 👉 For Manager: Load team members
     if (isManager(user?.role?? '')) {
-      const teamRes = await axios.get(`${baseURL}/api/manager/users/team`, {
+      const teamRes = await axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/users/team`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -219,7 +219,7 @@ const handleCreateProject = async (projectData: any) => {
     console.log("📤 Sending project creation request with data:", JSON.stringify(payload, null, 2));
 
     const response = await axios.post(
-      `${baseURL}/api/${simplifiedRole}/create-project`,
+      `https://nts-erp-system-629k.vercel.app/api/${simplifiedRole}/create-project`,
       payload,
       {
         headers: {
@@ -265,7 +265,7 @@ const handleProjectApproval = async (
     `);
 
     const response = await axios.post(
-      `${baseURL}/api/director/approve-project`,
+      `https://nts-erp-system-629k.vercel.app/api/director/approve-project`,
       {
         project_id: projectId,
         approval_comments: approvalComments || '', // matches backend
@@ -310,7 +310,7 @@ const handleProjectApproval = async (
       if (!token) throw new Error('No authentication token found');
 
       await axios.post(
-        `${baseURL}/api/manager/assigne-task-employee`,
+        `https://nts-erp-system-629k.vercel.app/api/manager/assigne-task-employee`,
         {
           project_id: projectId,
           employee_ids: employeeIds,
@@ -336,7 +336,7 @@ await loadInitialData();
         const token = localStorage.getItem('token');
         if (!token) throw new Error('No authentication token found');
 
-        await axios.delete(`${baseURL}/api/${simplifiedRole}/delete-projects/${projectId}`, {
+        await axios.delete(`https://nts-erp-system-629k.vercel.app/api/${simplifiedRole}/delete-projects/${projectId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -375,7 +375,7 @@ const handleUpdateProject = async (projectId: string, updateData: any) => {
     console.log('🚀 Sending update data with tasks:', JSON.stringify(dataToSend, null, 2));
 
     await axios.put(
-      `${baseURL}/api/director/update-project/${projectId}`,
+      `https://nts-erp-system-629k.vercel.app/api/director/update-project/${projectId}`,
       dataToSend,
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -1226,7 +1226,7 @@ useEffect(() => {
     try {
       const simplifiedRole = getSimpleDesignation(user?.role ?? "employee");
 
-      const res = await fetch(`${baseURL}/api/${simplifiedRole}/tasks`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${simplifiedRole}/tasks`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
 
