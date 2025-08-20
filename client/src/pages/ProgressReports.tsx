@@ -45,7 +45,7 @@ interface ApprovalModalProps {
     status: "approved" | "rejected"
   ) => void;
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const ApprovalModal: React.FC<ApprovalModalProps> = ({
   report,
   onClose,
@@ -531,7 +531,7 @@ const fetchReports = async () => {
     const role = getUserAccessLevel(user.role);
 
     const res = await fetch(
-      `${baseURL}/api/${role}/progress-report`,
+      `https://nts-erp-system-629k.vercel.app/api/${role}/progress-report`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -604,7 +604,7 @@ const fetchReports = async () => {
 const fetchTeam = async () => {
   try {
     const token = localStorage.getItem("token");
-    const endpoint = `${baseURL}/api/users`;
+    const endpoint = `https://nts-erp-system-629k.vercel.app/api/users`;
 
     console.log("📡 Fetching team from:", endpoint);
 
@@ -689,7 +689,7 @@ const handleReviewReport = async (
     const role = getUserAccessLevel(user.role);
 
     const res = await fetch(
-      `${baseURL}/api/${role}/approve-progress-report/${reportId}`,////for director
+      `https://nts-erp-system-629k.vercel.app/api/${role}/approve-progress-report/${reportId}`,////for director
       {
         method: "POST",
         headers: {
@@ -732,7 +732,7 @@ const handleReviewReport = async (
       const role = user?.role;
 
       const res = await fetch(
-        `${baseURL}/api/${role}/progress-report`,
+        `https://nts-erp-system-629k.vercel.app/api/${role}/progress-report`,
         {
           method: "POST",
           headers: {
@@ -781,7 +781,7 @@ const fetchTasks = async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("No auth token found");
 
-    const res = await fetch(`${baseURL}/api/employee/tasks`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/tasks`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
