@@ -29,7 +29,7 @@ import { getPriorityColor, getStatusColor } from "../utils/colors";
 import AddEmployee from "../components/Manager/AddEmployee";
 import { LeaveRequest, ProgressReport, Task, User} from "../types";
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 interface LeaveReviewModalProps {
   requestId: string;
   leaveRequests: LeaveRequest[];
@@ -498,11 +498,11 @@ useEffect(() => {
         reportsRes,
         projectsRes
       ] = await Promise.all([
-        axios.get(`${baseURL}/api/manager/users/team`, config),
-        axios.get(`${baseURL}/api/manager/tasks`, config),
-        axios.get(`${baseURL}/api/manager/leaves`, config),
-        axios.get(`${baseURL}/api/manager/progress-reports`, config),
-        axios.get(`${baseURL}/api/manager/active-projects`, config),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/users/team`, config),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/tasks`, config),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/leaves`, config),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/progress-reports`, config),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/active-projects`, config),
       ]);
 
       const mappedTeamMembers = Array.isArray(teamRes.data) ? teamRes.data : [];
@@ -616,7 +616,7 @@ const handleReviewClick = (reportId: string) => {
     };
 
     await axios.post(
-      `${baseURL}/api/manager/approve-leaves`,
+      `https://nts-erp-system-629k.vercel.app/api/manager/approve-leaves`,
       payload,
       config
     );
@@ -655,7 +655,7 @@ const handleReviewClick = (reportId: string) => {
     };
 
     await axios.post(
-      `${baseURL}/api/manager/report/approve`,
+      `https://nts-erp-system-629k.vercel.app/api/manager/report/approve`,
       {
         reportId,
         status: approved ? "approved" : "rejected",
@@ -700,7 +700,7 @@ const handleReviewClick = (reportId: string) => {
       };
 
       const res = await axios.post(
-        `${baseURL}/api/manager/add-employee`,
+        `https://nts-erp-system-629k.vercel.app/api/manager/add-employee`,
         newEmployee,
         config
       );
@@ -728,7 +728,7 @@ const handleReviewClick = (reportId: string) => {
       };
 
       const res = await axios.post(
-        `${baseURL}/api/manager/task`,
+        `https://nts-erp-system-629k.vercel.app/api/manager/task`,
         {
           ...newTask,
           status: "todo",
