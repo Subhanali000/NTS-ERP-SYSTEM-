@@ -281,6 +281,106 @@ exports.CreateTask = async (req, res) => {
   res.status(200).json(updatedLeave);
 };
 
+exports.getOverview = async (req, res) => {
+  try {
+    const managerId = req.params.id;  
+    console.log("📌 Fetching overview for managerId:", managerId);
+
+    // -------------------- Employees --------------------
+    const { data: employees, error: empError } = await supabase
+      .from("employees")
+      .select("id, name, role")
+      .eq("manager_id", managerId);
+
+    if (empError) throw empError;
+    const totalMembers = employees?.length || 0;
+    const employeeIds = employees.map(e => e.id);
+
+    // -------------------- Projects --------------------
+    const { data: projects, error: projError } = await supabase
+      .from("projects")
+      .select("id, title, status, start_date, end_date, priority, approval_comments")
+      .eq("manager_id", managerId);
+
+    if (projError) throw projError;
+
+    const activeCount = projects.filter(p => p.status === "approved").length;
+    const completedCount = projects.filter(p => p.status === "completed").length;
+    const pendingCount = projects.filter(p => p.status === "pending").length;
+
+    // ✅ On-time projects (completed & has end_date)
+    const onTimeProjects = projects.filter(
+      p => p.status === "completed" && p.end_date
+    ).length;
+
+    // -------------------- Tasks --------------------
+    const { data: tasks, error: taskError } = await supabase
+      .from("tasks")
+      .select("id, title, status, due_date, user_id")
+      .eq("manager_id", managerId);
+
+    if (taskError) throw taskError;
+
+    const completedTasks = tasks.filter(t => t.status === "completed").length;
+    const onTimeTasks = tasks.filter(
+      t => t.status === "completed" && t.due_date
+    ).length;
+
+    // -------------------- Progress Reports --------------------
+    const { data: reports, error: repError } = await supabase
+      .from("progress_reports")
+      .select("id, submitted_at, report_date, user_id")
+      .in("user_id", employeeIds);
+
+    if (repError) throw repError;
+
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Count submitted reports this month
+    const submittedReports = reports.filter(
+      r => new Date(r.report_date) >= firstDay && new Date(r.report_date) <= today
+    ).length;
+
+    // Expected daily reports (working days till today)
+    const totalDays = Math.floor((today - firstDay) / (1000 * 60 * 60 * 24)) + 1;
+    const missingReports = totalDays - submittedReports;
+
+    // -------------------- Performance Calculations --------------------
+    const projectScore = completedCount ? Math.round((onTimeProjects / completedCount) * 100) : 0;
+    const taskScore = completedTasks ? Math.round((onTimeTasks / completedTasks) * 100) : 0;
+    const reportScore = totalDays ? Math.round((submittedReports / totalDays) * 100) : 0;
+
+    const avgProgress = Math.round((projectScore + taskScore + reportScore) / 3);
+
+    // -------------------- Response --------------------
+    return res.json({
+      managerId,
+      teamSize: totalMembers,
+      completedTasks,
+      activeProjects: activeCount,
+      pendingProjects: pendingCount,
+      missingReports,
+      avgProgress,
+      metrics: {
+        projectScore,
+        taskScore,
+        reportScore,
+        onTimeProjects,
+        onTimeTasks,
+        submittedReports,
+        missingReports,
+      },
+      employees: employees || [],
+      projects: projects || [],
+      tasks: tasks || [],
+      reports: reports || [],
+    });
+  } catch (err) {
+    console.error("Error fetching manager overview:", err.message);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
 
 
 exports.applyLeave = async (req, res) => {
