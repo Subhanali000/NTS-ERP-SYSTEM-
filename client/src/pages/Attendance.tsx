@@ -69,7 +69,7 @@ function getLatestPerDate(records: AttendanceRecord[]): MappedAttendance[] {
     };
   });
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const formatTime = (time: string): string => {
   const [hour, minute] = time.split(':');
   const date = new Date();
@@ -92,7 +92,7 @@ const Attendance: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token || !user?.id) throw new Error('Unauthorized');
 
-      const res = await fetch(`${baseURL}/api/employee/attendance/`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/attendance/`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -141,7 +141,7 @@ const Attendance: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Unauthorized');
 
-      const res = await fetch(`${baseURL}/api/employee/attendance`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/attendance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +186,7 @@ const Attendance: React.FC = () => {
     }
 
     const res = await fetch(
-      `${baseURL}/api/employee/attendance/${today}`, // Use date instead of ID
+      `https://nts-erp-system-629k.vercel.app/api/employee/attendance/${today}`, // Use date instead of ID
       {
         method: 'PUT',
         headers: {
