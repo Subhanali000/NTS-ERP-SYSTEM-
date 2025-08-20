@@ -54,7 +54,7 @@ const safeJson = async (response: Response) => {
     return [];
   }
 };
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const EmployeeDashboard: React.FC = () => {
   const authUser = getCurrentUser();
   const user = getCurrentUser(); // used in punch out
@@ -82,10 +82,10 @@ useEffect(() => {
 
       // Fetch all required data in parallel
       const [userRes, tasksRes, leaveRes, progressRes] = await Promise.all([
-        fetch(`${baseURL}/api/employee/profile`, { headers }),
-        fetch(`${baseURL}/api/employee/tasks`, { headers }),
-        fetch(`${baseURL}/api/employee/leaves`, { headers }),
-        fetch(`${baseURL}/api/employee/progress`, { headers }),
+        fetch(`https://nts-erp-system-629k.vercel.app/api/employee/profile`, { headers }),
+        fetch(`https://nts-erp-system-629k.vercel.app/api/employee/tasks`, { headers }),
+        fetch(`https://nts-erp-system-629k.vercel.app/api/employee/leaves`, { headers }),
+        fetch(`https://nts-erp-system-629k.vercel.app/api/employee/progress`, { headers }),
       ]);
 
       if (!userRes.ok || !tasksRes.ok || !leaveRes.ok || !progressRes.ok) {
@@ -269,7 +269,7 @@ console.log("⏺️ Raw leaveRequests from backend", leaveRequests);
           userId: user.id,
         };
 
-        const res = await fetch(`${baseURL}/api/${role}/leave`, {
+        const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/leave`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -475,7 +475,7 @@ const ProgressReportForm: React.FC<ProgressReportFormProps> = ({
       console.log("📤 Sending progress update payload:", payload);
 
       const res = await fetch(
-        `${baseURL}/api/${user.role}/update-task-progress`,
+        `https://nts-erp-system-629k.vercel.app/api/${user.role}/update-task-progress`,
         {
           method: "POST",
           headers: {
@@ -655,7 +655,7 @@ const handlePunchIn = async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("Unauthorized");
 
-    const res = await fetch(`${baseURL}/api/employee/attendance`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/attendance`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -692,7 +692,7 @@ const handlePunchOut = async () => {
     if (!token || !user?.id) throw new Error("Unauthorized");
 
     const res = await fetch(
-      `${baseURL}/api/employee/attendance/${today}`,
+      `https://nts-erp-system-629k.vercel.app/api/employee/attendance/${today}`,
       {
         method: "PUT",
         headers: {
