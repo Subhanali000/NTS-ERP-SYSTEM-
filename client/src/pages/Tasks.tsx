@@ -39,7 +39,7 @@ type User = {
   managerId?: string;
 };
 
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 
 
 const Tasks: React.FC = () => {
@@ -86,13 +86,13 @@ useEffect(() => {
 
   const fetchData = async () => {
   try {
-    const tasksUrl = `${baseURL}/api/${role}/tasks`;
+    const tasksUrl = `https://nts-erp-system-629k.vercel.app/api/${role}/tasks`;
     
     const [tasksRes, progressRes, usersRes, allUsersRes] = await Promise.all([
       fetch(tasksUrl, { headers }),
-      fetch(`${baseURL}/api/${role}/progress`, { headers }),
-      fetch(`${baseURL}/api/user/profile`, { headers }),
-      fetch(`${baseURL}/api/users`, { headers }),
+      fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/progress`, { headers }),
+      fetch(`https://nts-erp-system-629k.vercel.app/api/user/profile`, { headers }),
+      fetch(`https://nts-erp-system-629k.vercel.app/api/users`, { headers }),
     ]);
 
     if (!tasksRes.ok) throw new Error(await tasksRes.text());
@@ -188,7 +188,7 @@ const teamTasks = canManageTasks
 
     console.log('📤 Creating task with payload:', payload);
 
-    const res = await fetch(`${baseURL}/api/${getSimpleDesignation(user.role)}/task`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${getSimpleDesignation(user.role)}/task`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -224,7 +224,7 @@ useEffect(() => {
     if (!allowedRoles.includes(role?.toLowerCase())) return;
 
     try {
-      const res = await fetch(`${baseURL}/api/${role.toLowerCase()}/active-projects`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role.toLowerCase()}/active-projects`, {
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}` 
@@ -281,7 +281,7 @@ useEffect(() => {
     }
 
     try {
-      const res = await fetch(`${baseURL}/api/${role}/users/team`, {
+      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/users/team`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -326,7 +326,7 @@ const handleEditTask = async (taskId: string, taskData: any) => {
 
     console.log('📤 Sending edit task payload to backend:', payload);
 
-    const res = await fetch(`${baseURL}/api/${role}/update-task-progress`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/update-task-progress`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -367,7 +367,7 @@ setHasFetched(false);
     const token = localStorage.getItem('token');
     const role = getSimpleDesignation(user.role); // assuming this exists
 
-    const res = await fetch(`${baseURL}/api/${role}/tasks/${taskId}`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${role}/tasks/${taskId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -404,7 +404,7 @@ setHasFetched(false);
 
     console.log('📤 Sending progress update payload:', payload);
 
-    const res = await fetch(`${baseURL}/api/${getSimpleDesignation(user.role)}/update-task-progress`, {
+    const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${getSimpleDesignation(user.role)}/update-task-progress`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
