@@ -539,10 +539,9 @@ useEffect(() => {
       setProgressReports(mappedProgressReports);
       setLeaveRequests(mappedLeaves);
 
-      // Calculate membersCount directly using manager_id
-      const membersCount = mappedTeamMembers.filter(
-  (m) => m.manager_id === currentUser?.id
-).length;
+     const membersCount = mappedTeamMembers.length;
+setMembersCount(membersCount);
+console.log("📌 Team Member Count:", membersCount);
 
 setMembersCount(membersCount);
 
