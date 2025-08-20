@@ -47,7 +47,7 @@ type Report = {
   tasks: { title: string }[] | number[];
   // add other fields as needed
 };
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 // Normalize role access
 const getUserAccessLevel = (role: string): 'director' | 'manager' | 'employee' => {
   const normalized = role?.toLowerCase().replace(/\s+/g, '_') || '';
@@ -135,9 +135,9 @@ const [formData, setFormData] = useState<FormData>({
       const headers = { Authorization: `Bearer ${token}` };
 
       const [reportRes, teamRes] = await Promise.all([
-        axios.get(`${baseURL}/api/manager/progress-reports`, { headers }),
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/progress-reports`, { headers }),
         canViewTeam
-          ? axios.get(`${baseURL}/api/manager/users/team`, { headers }).catch(() => ({ data: { data: [] } }))
+          ? axios.get(`https://nts-erp-system-629k.vercel.app/api/manager/users/team`, { headers }).catch(() => ({ data: { data: [] } }))
           : Promise.resolve({ data: [user] }),
       ]);
 
@@ -206,7 +206,7 @@ const [formData, setFormData] = useState<FormData>({
         const token = localStorage.getItem("token");
         const apiRole = getSimpleDesignation(user.role);
 
-        const res = await fetch(`${baseURL}/api/${apiRole}/tasks`, {
+        const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/${apiRole}/tasks`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -247,7 +247,7 @@ const handleApproval = async (isApproved: boolean) => {
     const apiRole = getSimpleDesignation(user.role);
 
     await axios.post(
-      `${baseURL}/api/${apiRole}/progress-reports/${viewingReport.id}/review`,//manager routes
+      `https://nts-erp-system-629k.vercel.app/api/${apiRole}/progress-reports/${viewingReport.id}/review`,//manager routes
       {
         managerFeedback: feedback,
         approved: isApproved,
@@ -586,7 +586,7 @@ const handleApproval = async (isApproved: boolean) => {
         const token = localStorage.getItem('token');
 
         await axios.post(
-          `${baseURL}/api/manager/progress-reports`,
+          `https://nts-erp-system-629k.vercel.app/api/manager/progress-reports`,
           {
             report_date: selectedDate,
             progress_percent: formData.progress,
@@ -602,7 +602,7 @@ const handleApproval = async (isApproved: boolean) => {
 
         // Refresh reports
         const response = await axios.get(
-          `${baseURL}/api/manager/progress-reports`,
+          `https://nts-erp-system-629k.vercel.app/api/manager/progress-reports`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
