@@ -40,7 +40,8 @@ router.get('/team-progress', verifyToken, restrictTo('manager'), managerControll
 router.delete('/tasks/:id', verifyToken, restrictTo('manager'), managerController.deleteTask);
 // router.delete('/delete-projects/:projectId', verifyToken, restrictTo('manager'), managerController.deleteProject);
 
-
+  
+router.get('/overview/:id', verifyToken, restrictTo('manager'), managerController.getOverview);
 router.post(
   '/add-employee',
   verifyToken,
