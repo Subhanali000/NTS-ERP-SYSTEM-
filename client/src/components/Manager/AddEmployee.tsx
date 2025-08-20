@@ -151,7 +151,7 @@ if (
                 .split("T")[0]
             : null,
       });
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
       const multipartForm = new FormData();
       multipartForm.append("name", formData.name);
       multipartForm.append("email", formData.email);
@@ -203,7 +203,7 @@ multipartForm.append("linkedin_profile", formData.linkedin_profile_link);
       }
 
       const response = await axios.post(
-        `${baseURL}/api/manager/add-employee`,
+        `https://nts-erp-system-629k.vercel.app/api/manager/add-employee`,
         multipartForm,
         {
           headers: {
