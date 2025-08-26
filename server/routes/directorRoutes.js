@@ -18,11 +18,11 @@ router.post('/assign-employee', directorController.assignEmployee);
 router.post('/approve-project', directorController.approveProject);
 // routes/leaveRoutes.js
 router.patch('/leaves/:id/director-approve', directorController.approveLeave);
-
+router.get('/leaves', directorController.getAllLeaves)
 router.get('/manager-team-leaves', directorController.getLeaves);
 router.get('/division-data', directorController.viewDivisionData);
 router.get('/total-employees', directorController.getTotalEmployees);
-router.get('/active-projects', directorController.getAllProjects);
+router.get('/active-projects', directorController.getActiveProjects);
 router.get('/departments', directorController.getDepartments);
 router.get('/avg-performance', directorController.getAvgPerformance);
 router.get('/employees', directorController.getAllEmployees);
