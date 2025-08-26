@@ -134,7 +134,7 @@ useEffect(() => {
 
     try {
       // ===== 1️⃣ Fetch profile =====
-      const profileRes = await fetch("http://localhost:8000/api/user/profile", {
+      const profileRes = await fetch("https://nts-erp-system-629k.vercel.app/api/user/profile", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!profileRes.ok) throw new Error("Failed to fetch profile");
@@ -170,7 +170,7 @@ const displayId = profile.employee_id || profile.manager_id || profile.director_
 });
 
       // ===== 2️⃣ Fetch settings =====
-      const settingsRes = await fetch("http://localhost:8000/api/user/settings", {
+      const settingsRes = await fetch("https://nts-erp-system-629k.vercel.app/api/user/settings", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (settingsRes.ok) {
@@ -180,7 +180,7 @@ const displayId = profile.employee_id || profile.manager_id || profile.director_
       }
 
       // ===== 3️⃣ Fetch security settings =====
-      const securityRes = await fetch("http://localhost:8000/api/user/security", {
+      const securityRes = await fetch("https://nts-erp-system-629k.vercel.app/api/user/security", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (securityRes.ok) {
@@ -255,7 +255,7 @@ const handleProfileSave = async () => {
     const payloadToSend = { ...profilePayload, ...normalizedSettings };
 
     // 3️⃣ Send PUT request
-    const res = await fetch("http://localhost:8000/api/user/profile", {
+    const res = await fetch("https://nts-erp-system-629k.vercel.app/api/user/profile", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -364,7 +364,7 @@ const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       user_id: user?.id || null,
     };
 
-    const res = await fetch("http://localhost:8000/api/user/settings", {
+    const res = await fetch("https://nts-erp-system-629k.vercel.app/api/user/settings", {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -398,7 +398,7 @@ const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/api/user/security', {
+      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/security', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
