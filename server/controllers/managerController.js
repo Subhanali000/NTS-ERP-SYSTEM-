@@ -170,6 +170,28 @@ console.log("supabase defined:", typeof supabase); // should be "object"
         })
         .eq("id", directorId);
     }
+ // 🔹 Create welcome + profile notifications
+    const notifications = [
+      {
+        type: "welcome",
+        source_id: employee.id,
+        message: `Welcome aboard, ${employee.name}! 🎉`,
+        created_by: req.user.id,
+        employee_id: employee.id,
+        employee_action: "unread",
+      },
+      {
+        type: "profile_update",
+        source_id: employee.id,
+        message: `Please update your profile information 📝`,
+        created_by: req.user.id,
+        employee_id: employee.id,
+        employee_action: "unread",
+      }
+    ];
+
+    const { error: notifError } = await supabase.from("notifications").insert(notifications);
+    if (notifError) console.error("❌ Failed to create notifications:", notifError.message);
 
     return res.status(201).json({
       message: `${role} registered successfully`,
@@ -194,6 +216,7 @@ exports.viewTeamPerformance = async (req, res) => {
 exports.CreateTask = async (req, res) => {
   const { project_id, title, description, assignee, priority, due_date } = req.body;
 
+  // 1️⃣ Verify the assignee is valid and under this manager
   const { data: employee, error: employeeError } = await supabase
     .from('employees')
     .select('id, manager_id')
@@ -204,22 +227,40 @@ exports.CreateTask = async (req, res) => {
     return res.status(403).json({ error: 'Invalid assignee or not under this manager' });
   }
 
-  const { error } = await supabase.from('tasks').insert({
-    project_id,
-    user_id: assignee,
-    title,
-    description,
-    priority,
-    due_date,
-    assigned_by: req.user.id,
-    status: 'assigned',
-  });
+  // 2️⃣ Create the task
+  const { data: taskData, error: taskError } = await supabase.from('tasks')
+    .insert({
+      project_id,
+      user_id: assignee,
+      title,
+      description,
+      priority,
+      due_date,
+      assigned_by: req.user.id,
+      status: 'assigned',
+    })
+    .select()
+    .single();
 
-  if (error) return res.status(400).json({ error: error.message });
+  if (taskError) return res.status(400).json({ error: taskError.message });
 
-  res.status(201).json({ message: 'Task assigned successfully' });
+  // 3️⃣ Create a notification for the assignee only
+  const notification = {
+    source_id: taskData.id,
+    type: 'task',
+    message: `A new task "${title}" has been assigned to you 📋`,
+    created_by: req.user.id, // manager who assigned
+    employee_id: assignee,
+    employee_action: 'unread',
+  };
+
+  const { error: notifError } = await supabase.from('notifications')
+    .insert([notification]);
+
+  if (notifError) console.error('❌ Failed to create notification:', notifError.message);
+
+  res.status(201).json({ message: 'Task assigned successfully', task: taskData });
 };
-
 
   exports.approveLeave = async (req, res) => {
  const { leave_id, status } = req.body;
@@ -386,20 +427,56 @@ exports.getOverview = async (req, res) => {
 exports.applyLeave = async (req, res) => {
   const { leave_type, start_date, end_date, reason } = req.body;
 
-  const { data, error } = await supabase.from("leaves").insert([
-    {
-      user_id: req.user.id,
-      leave_type,
-      start_date,
-      end_date,
-      reason,
-      manager_approval: "pending",
-      director_approval: "pending",
-    },
-  ]).select("*"); // 🧠 Get the inserted leave (optional)
+  try {
+    // 1️⃣ Insert leave request
+    const { data: leaveData, error: leaveError } = await supabase
+      .from("leaves")
+      .insert([
+        {
+          user_id: req.user.id,
+          leave_type,
+          start_date,
+          end_date,
+          reason,
+          manager_approval: "pending",
+          director_approval: "pending",
+        },
+      ])
+      .select("*");
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.status(201).json(data[0]); // ✅ Return the created leave
+    if (leaveError) throw leaveError;
+    const leave = leaveData[0];
+
+    // 2️⃣ Fetch all directors
+    const { data: directors, error: dirError } = await supabase
+      .from("directors")
+      .select("id, name");
+
+    if (dirError) console.warn("Failed to fetch directors:", dirError.message);
+
+    // 3️⃣ Create notification(s) for director(s)
+    if (directors && directors.length > 0) {
+      const notifications = directors.map((director) => ({
+        director_id: director.id,
+        type: "leave_request",
+        message: `Managers applied for ${leave_type} leave from ${start_date} to ${end_date}.`,
+        source_id: leave.id,
+        created_by: req.user.id,
+        created_at: new Date().toISOString(),
+      }));
+
+      const { error: notifError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (notifError) console.warn("Director notification failed:", notifError.message);
+    }
+
+    res.status(201).json(leave);
+  } catch (err) {
+    console.error("Leave application error:", err.message || err);
+    res.status(400).json({ error: err.message || "Failed to apply leave" });
+  }
 };
 
 exports.getTeam = async (req, res) => {
@@ -711,44 +788,27 @@ exports.getActiveProjects = async (req, res) => {
 
 exports.createProject = async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      start_date,
-      end_date,
-      priority // ✅ New field from frontend
-    } = req.body;
-
+    const { title, description, start_date, end_date, priority } = req.body;
     const managerId = req.user?.id;
 
-    console.log('🛠️ Incoming project creation request');
-    console.log('📥 Request Body:', req.body);
-    console.log('👤 Authenticated Manager ID:', managerId);
-
-    // Step 0: Validate required fields
     if (!title || !start_date) {
-      console.warn('⚠️ Validation failed: Missing required fields');
-      return res.status(400).json({
-        error: 'Title and start date are required.',
-      });
+      return res.status(400).json({ error: 'Title and start date are required.' });
     }
 
-    // Step 1: Fetch director_id from the managers table
+    // 1️⃣ Get director_id for this manager
     const { data: managerData, error: managerError } = await supabase
       .from('managers')
-      .select('id, director_id')
+      .select('director_id')
       .eq('id', managerId)
       .single();
 
     if (managerError || !managerData?.director_id) {
-      console.error('❌ Failed to fetch director_id for manager:', managerError?.message);
       return res.status(400).json({ error: 'Manager must be assigned to a director.' });
     }
 
     const directorId = managerData.director_id;
-    console.log('✅ Director ID found:', directorId);
 
-    // Step 2: Create the project only
+    // 2️⃣ Create project
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .insert([{
@@ -756,7 +816,7 @@ exports.createProject = async (req, res) => {
         description,
         start_date,
         end_date,
-        priority: priority || 'low', // ✅ Default to 'low' if not provided
+        priority: priority || 'low',
         manager_id: managerId,
         director_id: directorId,
         status: 'pending_approval',
@@ -765,23 +825,34 @@ exports.createProject = async (req, res) => {
       .single();
 
     if (projectError) {
-      console.error('❌ Project creation failed:', projectError.message);
       return res.status(500).json({ error: projectError.message });
     }
 
-    console.log('✅ Project created:', project);
+    // 3️⃣ Create notification for director
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert([{
+        type: 'project_approval',
+        source_id: project.id,
+        message: `New project "${project.title}" submitted for your approval ✅`,
+        created_by: managerId,      // manager created the project
+        director_id: directorId,
+        director_action: 'unread',
+      }]);
 
-    // ✅ Final response
-    res.json({
-      message: 'Project created successfully.',
+    if (notifError) console.error('❌ Failed to create notification:', notifError.message);
+
+    res.status(201).json({
+      message: 'Project created successfully. Director notified for approval.',
       project,
     });
 
   } catch (err) {
-    console.error('❌ Unexpected error:', err.message, err.stack);
+    console.error('❌ Unexpected error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 
 
 exports.deleteTask = async (req, res) => {
@@ -823,6 +894,7 @@ exports.deleteTask = async (req, res) => {
 };
 
 // controllers/tasksController.js
+// controllers/tasksController.js
 exports.updateTaskProgress = async (req, res) => {
   try {
     console.log('🟡 Incoming updateTaskProgress request');
@@ -853,10 +925,7 @@ exports.updateTaskProgress = async (req, res) => {
     // 1️⃣ Update the task's status
     const { error: taskError } = await supabase
       .from('tasks')
-      .update({
-        status,
-        
-      })
+      .update({ status })
       .eq('id', task_id);
 
     if (taskError) {
@@ -866,7 +935,6 @@ exports.updateTaskProgress = async (req, res) => {
         details: taskError.message,
       });
     }
-
     console.log('✅ Task status updated');
 
     // 2️⃣ Add progress entry
@@ -891,23 +959,58 @@ exports.updateTaskProgress = async (req, res) => {
         details: progressError.message,
       });
     }
-
     console.log('✅ Progress entry created:', progressData);
 
-    // 3️⃣ Optionally update project status if provided
+    // 3️⃣ Notify the director if manager updated the task
+    try {
+      const { data: taskData, error: taskFetchError } = await supabase
+        .from('tasks')
+        .select('project_id')
+        .eq('id', task_id)
+        .single();
+
+      if (!taskFetchError && taskData?.project_id) {
+        const { data: projectData, error: projectFetchError } = await supabase
+          .from('projects')
+          .select('director_id, title')
+          .eq('id', taskData.project_id)
+          .single();
+
+        if (!projectFetchError && projectData?.director_id) {
+          const notification = {
+            type: 'task_progress',
+            source_id: task_id,
+            message: `Task updated by manager 📋`,
+            created_by: manager_id,
+            director_id: projectData.director_id,
+            director_action: 'unread',
+          };
+
+          const { error: notifError } = await supabase
+            .from('notifications')
+            .insert([notification]);
+
+          if (notifError) {
+            console.error('❌ Failed to create director notification:', notifError.message);
+          } else {
+            console.log('📢 Director notified of task update');
+          }
+        }
+      }
+    } catch (notifyErr) {
+      console.error('❌ Error creating director notification:', notifyErr);
+    }
+
+    // 4️⃣ Optionally update project status if provided
     if (project_id && project_status) {
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
-        .update({
-          status: project_status,
-          
-        })
+        .update({ status: project_status })
         .eq('id', project_id)
         .select();
 
       if (projectError) {
         console.error('❌ Error updating project status:', projectError);
-        // Optional: You can still continue even if this fails
       } else {
         console.log('✅ Project status updated:', projectData);
       }
@@ -915,6 +1018,7 @@ exports.updateTaskProgress = async (req, res) => {
       console.log('ℹ️ Skipped project status update – missing project_id or project_status.');
     }
 
+    // ✅ Final response
     return res.status(200).json({
       message: 'Task progress updated successfully.',
       task_status: status,
@@ -925,6 +1029,8 @@ exports.updateTaskProgress = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error.' });
   }
 };
+
+
 
 exports.getTasks = async (req, res) => {
   try {
@@ -1364,76 +1470,110 @@ exports.getProgress = async (req, res) => {
 
   res.status(200).json(data);
 };
-// In controllers/managerController.js or .ts
-
 exports.submitProgressReport = async (req, res) => {
   try {
     const {
-  report_date,
-  accomplishments,
-  challenges,
-  tomorrow_plan,
-  task_completed,
-  progress_percent,
-} = req.body;
+      report_date,
+      accomplishments,
+      challenges,
+      tomorrow_plan,
+      task_completed,
+      progress_percent,
+    } = req.body;
 
+    const user = req.user; // manager
 
-    const user = req.user;
-
-    // Required field check
     if (!accomplishments) {
-      return res.status(400).json({ error: 'Accomplishments are required' });
+      return res.status(400).json({ error: "Accomplishments are required" });
     }
 
-    const { data, error } = await supabase.from('progress_reports').insert([
-      {
-        user_id: user.id,
-        role: user.role || 'manager',
-        report_date: report_date || new Date().toISOString().split('T')[0],
-        accomplishments,
-        challenges: challenges || null,
-        tomorrow_plan: tomorrow_plan || null,
-        task_completed: task_completed ?? [],
-        progress_percent: progress_percent ?? 0,
-        submitted_at: new Date().toISOString(),
-      },
-    ]);
+    // 1️⃣ Insert progress report
+    const { data: reportData, error: reportError } = await supabase
+      .from("progress_reports")
+      .insert([
+        {
+          user_id: user.id,
+          role: user.role || "manager",
+          report_date: report_date || new Date().toISOString().split("T")[0],
+          accomplishments,
+          challenges: challenges || null,
+          tomorrow_plan: tomorrow_plan || null,
+          task_completed: task_completed ?? [],
+          progress_percent: progress_percent ?? 0,
+          submitted_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
 
-    if (error) {
-      console.error('❌ Supabase insert error:', error.message);
-      return res.status(500).json({ success: false, message: 'Failed to submit report' });
+    if (reportError) {
+      console.error("❌ Supabase insert error:", reportError.message);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to submit report" });
     }
 
-    res.status(201).json({ success: true, message: 'Progress submitted', report: data?.[0] });
+    // 2️⃣ Get manager details (to find director_id)
+    const { data: managerData, error: mgrError } = await supabase
+      .from("managers")
+      .select("id, name, director_id")
+      .eq("id", user.id)
+      .single();
+
+    if (mgrError || !managerData?.director_id) {
+      console.warn("⚠️ Could not find director for manager:", user.id);
+    } else {
+      const directorId = managerData.director_id;
+
+      // 3️⃣ Insert notification for the director
+      const notificationPayload = {
+        type: "progress_report",
+        source_id: reportData.id,
+        message: `New progress report submitted by ${managerData.name || "Manager"} 📝`,
+        created_by: managerData.id, // Manager’s ID
+        director_id: directorId, // Director who receives it
+        director_action: "unread",
+        created_at: new Date().toISOString(),
+      };
+
+      console.log("📩 Notification payload:", notificationPayload);
+
+      const { error: notifError } = await supabase
+        .from("notifications")
+        .insert([notificationPayload]);
+
+      if (notifError) {
+        console.error("❌ Failed to create notification:", notifError.message);
+      } else {
+        console.log("✅ Notification created for director");
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Progress submitted",
+      report: reportData,
+    });
   } catch (err) {
-    console.error('❗ Unexpected server error:', err.message);
-    res.status(500).json({ success: false, message: 'Failed to submit report' });
+    console.error("❗ Unexpected server error:", err);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to submit report" });
   }
 };
+
 ////////////////////////////////////////////////////////////////
 // controllers/managerController.js
-
 exports.assignTaskEmployee = async (req, res) => {
   try {
     const managerId = req.user?.id;
     const { project_id, employee_ids, title, description, due_date } = req.body;
 
-    console.log('📥 Incoming Assign Task Request:', {
-      managerId,
-      project_id,
-      employee_ids,
-      title,
-      description,
-      due_date,
-    });
-
-    // 🔍 Validate minimal input
     if (!project_id || !employee_ids?.length) {
-      console.warn('⚠️ Missing required project_id or employee_ids');
       return res.status(400).json({ error: 'Project ID and employee IDs are required.' });
     }
 
-    // 🧠 Fetch project details (including priority)
+    // Fetch project details
     const { data: project, error: projectError } = await supabase
       .from('projects')
       .select('title, description, start_date, end_date, priority')
@@ -1441,20 +1581,18 @@ exports.assignTaskEmployee = async (req, res) => {
       .single();
 
     if (projectError || !project) {
-      console.error('❌ Failed to fetch project:', projectError?.message || 'Not found');
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // ⛑ Fill in missing data
     const finalTitle = title || project.title;
     const finalDescription = description || project.description || project.title;
     const finalDueDate = due_date || project.end_date;
-    const finalPriority = project.priority || 'medium'; // ✅ use project priority
+    const finalPriority = project.priority || 'medium';
 
-    // ✅ Validate employees
+    // Validate employees
     const { data: validEmployees, error: employeeError } = await supabase
       .from('employees')
-      .select('id')
+      .select('id, name')
       .in('id', employee_ids);
 
     if (employeeError) {
@@ -1467,7 +1605,7 @@ exports.assignTaskEmployee = async (req, res) => {
       return res.status(400).json({ error: 'One or more employee IDs are invalid.' });
     }
 
-    // 🛠️ Create tasks (priority from project, status 'in progress')
+    // Create tasks
     const taskPayload = validEmployeeIds.map(empId => ({
       project_id,
       user_id: empId,
@@ -1475,26 +1613,19 @@ exports.assignTaskEmployee = async (req, res) => {
       assigned_by: managerId,
       title: finalTitle,
       description: finalDescription,
-      priority: finalPriority, // ✅ match project priority
+      priority: finalPriority,
       due_date: finalDueDate,
-      status: 'in_progress', // ✅ directly in progress
+      status: 'in_progress',
     }));
-
-    console.log('🛠️ Task Payload:', taskPayload);
 
     const { data: createdTasks, error: taskError } = await supabase
       .from('tasks')
       .insert(taskPayload)
       .select();
 
-    if (taskError) {
-      console.error('❌ Failed to insert tasks:', taskError.message);
-      return res.status(500).json({ error: taskError.message });
-    }
+    if (taskError) return res.status(500).json({ error: taskError.message });
 
-    console.log(`✅ ${createdTasks.length} tasks created`);
-
-    // 📈 Create progress records
+    // Create progress records
     const progressPayload = createdTasks.map(task => ({
       task_id: task.id,
       user_id: task.user_id,
@@ -1509,15 +1640,26 @@ exports.assignTaskEmployee = async (req, res) => {
       .from('progress')
       .insert(progressPayload);
 
-    if (progressError) {
-      console.error('❌ Failed to insert progress records:', progressError.message);
-      return res.status(500).json({ error: progressError.message });
-    }
+    if (progressError) return res.status(500).json({ error: progressError.message });
 
-    console.log('✅ Progress records created');
+    // ✅ Create notifications for assigned employees
+    const notifications = createdTasks.map(task => ({
+      type: 'task_assignment',
+      source_id: task.id,
+      message: `New task assigned: "${task.title}" 📌`,
+      created_by: managerId,
+      employee_id: task.user_id,
+      employee_action: 'unread',
+    }));
+
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert(notifications);
+
+    if (notifError) console.error('❌ Failed to create notifications:', notifError.message);
 
     return res.json({
-      message: 'Tasks assigned successfully with project priority applied.',
+      message: 'Tasks assigned successfully with notifications sent to employees.',
       tasks_created: createdTasks.length,
     });
   } catch (err) {
@@ -1525,6 +1667,7 @@ exports.assignTaskEmployee = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
+
 //////////////////////delete project///////////////
 // exports.deleteProject = async (req, res) => {
 //   try {
