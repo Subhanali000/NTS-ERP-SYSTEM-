@@ -192,7 +192,7 @@ useEffect(() => {
 
       const endpoints = ["employees", "active-projects", "leaves", "progress-report"];
       const requests = endpoints.map((ep) =>
-        axios.get(`http://localhost:8000/api/director/${ep}`, {
+        axios.get(`https://nts-erp-system-629k.vercel.app/api/director/${ep}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
       );
