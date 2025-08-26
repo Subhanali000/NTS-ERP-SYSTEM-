@@ -79,7 +79,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token found');
 
-      const response = await fetch(`http://localhost:8000/api/director/managers`, {
+      const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (!response.ok) {
@@ -201,7 +201,7 @@ if (
       }
 
       const response = await axios.post(
-        `http://localhost:8000/api/director/add-employee`,
+        `https://nts-erp-system-629k.vercel.app/api/director/add-employee`,
         multipartForm,
         {
           headers: {
