@@ -1,30 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Calendar, MapPin, Briefcase, Save, X, UserPlus, Building, Shield, Clock } from 'lucide-react';
 import { getCurrentUser } from '../../utils/auth';
+import axios from "axios";
 
 interface AddEmployeeProps {
   onClose: () => void;
   onSave: (employee: any) => void;
 }
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const AddEmployee: React.FC<AddEmployeeProps> = ({ onClose, onSave }) => {
   const currentUser = getCurrentUser();
+   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  React.useEffect(() => {
+      return () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+      };
+    }, [previewUrl]);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: 'employee',
-    department: 'Human Resources',
-    join_date: new Date().toISOString().split('T')[0],
-    annual_salary: '',
-    address: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    leaveBalance: 20,
-    employee_id: '',
-    position: '',
-    manager_id: ''
+    name: "",
+    email: "",
+    phone: "",
+    role: "employee",
+    department: "engineering",
+    joinDate: new Date().toISOString().split("T")[0],
+     dob: "", // <-- new field
+  bio: "", // <-- new field
+  github_profile_link: "", // <-- new field
+  linkedin_profile_link: "", // <-- new field
+    annual_salary: "",
+    address: "",
+    manager_id: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    annual_leave_balance: 20,
+    employee_id: "",
+    position: "",
+    reportingManager: "",
+    directorId: "",
+    profile_photo: null as File | null,
+    college: null,
+    internship_start_date: null,
+    internship_end_date: null,
   });
+
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,7 +79,7 @@ useEffect(() => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('No authentication token found');
 
-      const response = await fetch(`${baseURL}/api/director/managers`, {
+      const response = await fetch(`http://localhost:8000/api/director/managers`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (!response.ok) {
@@ -78,72 +96,139 @@ useEffect(() => {
   fetchManagers();
 }, []);
 
-  const validateForm = () => {
+    const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = 'Full name is required';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Please enter a valid email address';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-    if (!formData.annual_salary.trim()) newErrors.annual_salary = 'Annual salary is required';
-    if (!formData.emergency_contact_name.trim()) newErrors.emergency_contact_name = 'Emergency contact name is required';
-    if (!formData.emergency_contact_phone.trim()) newErrors.emergency_contact_phone = 'Emergency contact phone is required';
-    if (!formData.employee_id.trim()) newErrors.employee_id = 'Employee ID is required';
-    if (!formData.position.trim()) newErrors.position = 'Position/Job title is required';
-    if (['employee', 'intern', 'senior_employee', 'team_lead'].includes(formData.role) && !formData.manager_id.trim()) {
-      newErrors.manager_id = 'Manager assignment is required';
+    if (!formData.name.trim()) newErrors.name = "Full name is required";
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(formData.email))
+      newErrors.email = "Please enter a valid email address";
+    if (!formData.phone.trim()) newErrors.phone = "Phone number is required";
+    if (!formData.annual_salary.trim())
+      newErrors.annual_salary = "Annual salary is required";
+    if (!formData.dob.trim()) newErrors.dob = "Date of birth is required";
+if (!formData.bio.trim()) newErrors.bio = "Bio is required";
+// Optional: validate URLs
+if (
+  formData.github_profile_link &&
+  !/^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_-]+$/.test(
+    formData.github_profile_link
+  )
+)
+  newErrors.github_profile_link = "Enter a valid GitHub profile URL";
+if (
+  formData.linkedin_profile_link &&
+  !/^https?:\/\/(www\.)?linkedin\.com\/in\/[A-Za-z0-9_-]+$/.test(
+    formData.linkedin_profile_link
+  )
+)
+  newErrors.linkedin_profile_link = "Enter a valid LinkedIn profile URL";
+    if (!formData.emergency_contact_name.trim())
+      newErrors.emergency_contact_name = "Emergency contact name is required";
+    if (!formData.emergency_contact_phone.trim())
+      newErrors.emergency_contact_phone = "Emergency contact phone is required";
+    if (!formData.employee_id.trim())
+      newErrors.employee_id = "Employee ID is required";
+    if (!formData.position.trim())
+      newErrors.position = "Position/Job title is required";
+
+    // Only require manager for certain roles
+    const rolesRequiringManager = ['employee', 'intern', 'senior_employee', 'team_lead'];
+    if (rolesRequiringManager.includes(formData.role) && !formData.manager_id.trim()) {
+      newErrors.manager_id = "Manager is required for this role";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${baseURL}/api/director/add-employee`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          id: `emp-${Date.now()}`,
-          avatar: `https://images.pexels.com/photos/${Math.floor(Math.random() * 1000000)}/pexels-photo-${Math.floor(Math.random() * 1000000)}.jpeg?auto=compress&cs=tinysrgb&w=150`,
-          createdAt: new Date().toISOString(),
-          status: 'active',
-          director_id: currentUser?.id ?? ''
-        }),
-      });
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("No authentication token found");
+      console.log("Token:", token);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to add employee: ${errorText}`);
+      const multipartForm = new FormData();
+      multipartForm.append("name", formData.name);
+      multipartForm.append("email", formData.email);
+      multipartForm.append("phone", formData.phone);
+      multipartForm.append("role", formData.role);
+      multipartForm.append("department", formData.department);
+      multipartForm.append("join_date", formData.joinDate); // ✅ use camelCase from state
+      multipartForm.append("annual_salary", formData.annual_salary);
+      multipartForm.append("address", formData.address);
+      multipartForm.append("dob", formData.dob);
+      multipartForm.append("bio", formData.bio);
+      multipartForm.append("github_profile_link", formData.github_profile_link);
+      multipartForm.append("linkedin_profile_link", formData.linkedin_profile_link);
+      multipartForm.append(
+        "emergency_contact_name",
+        formData.emergency_contact_name
+      );
+      multipartForm.append(
+        "emergency_contact_phone",
+        formData.emergency_contact_phone
+      );
+      multipartForm.append(
+        "annual_leave_balance",
+        formData.annual_leave_balance.toString()
+      );
+      multipartForm.append("employee_id", formData.employee_id);
+      multipartForm.append("position", formData.position);
+      multipartForm.append("manager_id", formData.manager_id);
+
+      // Optional fields
+      if (formData.role === "intern") {
+        multipartForm.append("college", formData.college || "Default College");
+        multipartForm.append(
+          "internship_start_date",
+          formData.internship_start_date || new Date().toISOString().split("T")[0]
+        );
+        multipartForm.append(
+          "internship_end_date",
+          formData.internship_end_date || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+        );
       }
 
-      const newEmployee = await response.json();
-      onSave(newEmployee);
+      // Append profile photo if provided
+      if (formData.profile_photo) {
+        multipartForm.append("profile_photo", formData.profile_photo);
+      }
+
+      const response = await axios.post(
+        `http://localhost:8000/api/director/add-employee`,
+        multipartForm,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      onSave(response.data.employee);
+  console.log("Employee added successfully:", response.data.employee);
+    } catch (error) {
+      console.error("Error adding employee:", error);
+    } finally {
       setIsSubmitting(false);
       onClose();
-      console.log('Employee added successfully:', newEmployee);
-    } catch (error: any) {
-      console.error('Error adding employee:', error.message);
-      setIsSubmitting(false);
-      alert(`Failed to add employee: ${error.message}`);
     }
   };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
@@ -152,6 +237,58 @@ useEffect(() => {
     const randomNum = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
     const employeeId = `${prefix}${randomNum}`;
     setFormData(prev => ({ ...prev, employee_id: employeeId }));
+  };
+
+  // Add college and internship date fields for interns
+  const renderInternFields = () => {
+    if (formData.role !== 'intern') return null;
+
+    return (
+      <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 border border-yellow-200 mt-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
+          <Calendar className="w-6 h-6 text-yellow-600" />
+          <span>Internship Details</span>
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">College/University</label>
+            <input
+              type="text"
+              name="college"
+              value={formData.college || ''}
+              onChange={handleChange}
+              className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 bg-white"
+              placeholder="Enter college/university name"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Internship Start Date</label>
+              <input
+                type="date"
+                name="internship_start_date"
+                value={formData.internship_start_date || ''}
+                onChange={handleChange}
+                className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 bg-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Internship End Date</label>
+              <input
+                type="date"
+                name="internship_end_date"
+                value={formData.internship_end_date || ''}
+                onChange={handleChange}
+                className="w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -177,16 +314,62 @@ useEffect(() => {
             </button>
           </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="p-8">
+<form onSubmit={handleSubmit} className="p-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Personal Information */}
+
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
                 <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center space-x-3">
                   <User className="w-6 h-6 text-blue-600" />
                   <span>Personal Information</span>
                 </h3>
+                {/* Profile Photo Upload */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200 mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-3">
+                    <UserPlus className="w-6 h-6 text-green-600" />
+                    <span>Profile Photo</span>
+                  </h3>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-4 sm:space-y-0">
+                    {/* Preview Box */}
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-green-300 bg-white shadow">
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No Photo
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload Input */}
+                    <div className="flex flex-col space-y-1">
+                      <label className="text-sm font-bold text-gray-700">
+                        Upload Photo
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              profile_photo: file,
+                            }));
+                            setPreviewUrl(URL.createObjectURL(file));
+                          }
+                        }}
+                        className="text-sm text-gray-700 bg-white border-2 border-gray-300 rounded-xl px-4 py-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent file:bg-green-600 file:text-white file:font-medium file:rounded-md file:px-4 file:py-2 file:border-0 file:mr-3 hover:file:bg-green-700"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 <div className="space-y-4">
                   <div>
@@ -227,7 +410,96 @@ useEffect(() => {
                       <span>{errors.email}</span>
                     </p>}
                   </div>
+{/* DOB */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    Date of Birth *
+  </label>
+  <input
+    type="date"
+    name="dob"
+    value={formData.dob}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.dob ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+  />
+  {errors.dob && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.dob}</span>
+    </p>
+  )}
+</div>
 
+{/* Bio */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    Bio
+  </label>
+  <textarea
+    name="bio"
+    value={formData.bio}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.bio ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="Write a short bio"
+  />
+  {errors.bio && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.bio}</span>
+    </p>
+  )}
+</div>
+
+{/* GitHub Profile */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    GitHub Profile
+  </label>
+  <input
+    type="url"
+    name="github_profile_link"
+    value={formData.github_profile_link}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.github_profile_link ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="https://github.com/username"
+  />
+  {errors.github_profile_link && (
+  <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+    <X className="w-4 h-4" />
+    <span>{errors.github_profile_link}</span>
+  </p>
+
+  )}
+</div>
+
+{/* LinkedIn Profile */}
+<div>
+  <label className="block text-sm font-bold text-gray-700 mb-2">
+    LinkedIn Profile
+  </label>
+  <input
+    type="url"
+    name="linkedin_profile_link"
+    value={formData.linkedin_profile_link}
+    onChange={handleChange}
+    className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 ${
+      errors.linkedin_profile_link ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"
+    }`}
+    placeholder="https://linkedin.com/in/username"
+  />
+  {errors.linkedin_profile_link && (
+    <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+      <X className="w-4 h-4" />
+      <span>{errors.linkedin_profile_link}</span>
+    </p>
+  )}
+</div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number *</label>
                     <div className="relative">
@@ -321,34 +593,43 @@ useEffect(() => {
                   <span>Employment Details</span>
                 </h3>
 
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Employee ID *</label>
-                      <div className="flex space-x-2">
-                        <input
-                          type="text"
-                          name="employee_id"
-                          value={formData.employee_id}
-                          onChange={handleChange}
-                          className={`flex-1 border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 ${
-                            errors.employee_id ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
-                          }`}
-                          placeholder="EMP001"
-                        />
-                        <button
-                          type="button"
-                          onClick={generateEmployeeId}
-                          className="px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
-                        >
-                          Generate
-                        </button>
-                      </div>
-                      {errors.employee_id && <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
-                        <X className="w-4 h-4" />
-                        <span>{errors.employee_id}</span>
-                      </p>}
-                    </div>
+              <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">
+                                      Employee ID *
+                                    </label>
+              
+                                    <div className="flex flex-col space-y-2">
+                                      <input
+                                        type="text"
+                                        name="employee_id"
+                                        value={formData.employee_id}
+                                        onChange={handleChange}
+                                        className={`w-full border-2 rounded-xl px-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 ${
+                                          errors.employee_id
+                                            ? "border-red-300 bg-red-50"
+                                            : "border-gray-300 bg-white"
+                                        }`}
+                                        placeholder="EMP001"
+                                      />
+              
+                                      <button
+                                        type="button"
+                                        onClick={generateEmployeeId}
+                                        className="w-[200px] h-[50px] bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium self-start"
+                                      >
+                                        Generate Employee ID
+                                      </button>
+                                    </div>
+              
+                                    {errors.employee_id && (
+                                      <p className="text-red-600 text-sm mt-1 flex items-center space-x-1">
+                                        <X className="w-4 h-4" />
+                                        <span>{errors.employee_id}</span>
+                                      </p>
+                                    )}
+                                  </div>
 
                     <div>
                       <label className="block text-sm font-bold text-gray-700 mb-2">Position/Job Title *</label>
@@ -432,12 +713,12 @@ useEffect(() => {
                       <div className="relative">
                         <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                         <input
-                          type="date"
-                          name="join_date"
-                          value={formData.join_date}
-                          onChange={handleChange}
-                          className="w-full border-2 border-gray-300 rounded-xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white"
-                        />
+        type="date"
+        name="joinDate"               // ✅ matches state
+        value={formData.joinDate}     // ✅ matches state
+        onChange={handleChange}       // ✅ updates state correctly
+        className="w-full border-2 border-gray-300 rounded-xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white"
+      />
                       </div>
                     </div>
 
@@ -466,8 +747,8 @@ useEffect(() => {
                       <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <input
                         type="number"
-                        name="leaveBalance"
-                        value={formData.leaveBalance}
+                        name="annual_leave_balance"
+                        value={formData.annual_leave_balance}
                         onChange={handleChange}
                         className="w-full border-2 border-gray-300 rounded-xl pl-12 pr-4 py-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 bg-white"
                         placeholder="Annual leave days"
@@ -480,18 +761,42 @@ useEffect(() => {
                 </div>
               </div>
 
+              {/* Internship Fields - Only show for interns */}
+              {renderInternFields()}
+
               {/* Preview Card */}
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Employee Preview</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-4">
+                  Employee Preview
+                </h3>
+
                 <div className="bg-white rounded-lg p-4 border border-gray-200">
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {formData.name ? formData.name.charAt(0).toUpperCase() : '?'}
-                    </div>
+                    {/* Avatar or Image Preview */}
+                    {previewUrl ? (
+                      <img
+                        src={previewUrl}
+                        alt="Profile"
+                        className="w-12 h-12 rounded-full object-cover border border-gray-300"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                        {formData.name
+                          ? formData.name.charAt(0).toUpperCase()
+                          : "?"}
+                      </div>
+                    )}
+
                     <div>
-                      <h4 className="font-bold text-gray-900">{formData.name || 'Employee Name'}</h4>
-                      <p className="text-sm text-gray-600">{formData.position || 'Position'}</p>
-                      <p className="text-xs text-gray-500">{formData.employee_id || 'Employee ID'}</p>
+                      <h4 className="font-bold text-gray-900">
+                        {formData.name || "Employee Name"}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        {formData.position || "Position"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formData.employee_id || "Employee ID"}
+                      </p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-sm">
@@ -511,7 +816,7 @@ useEffect(() => {
                     </div>
                     <div>
                       <span className="text-gray-600">Leave Balance:</span>
-                      <span className="ml-1 font-medium">{formData.leaveBalance} days</span>
+                      <span className="ml-1 font-medium">{formData.annual_leave_balance} days</span>
                     </div>
                   </div>
                 </div>
