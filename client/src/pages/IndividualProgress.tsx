@@ -293,12 +293,12 @@ const IndividualProgress: React.FC = () => {
 
       const [managersRes, attendanceRes, tasksRes, reportsRes, requestsRes, employeesRes] =
         await Promise.all([
-          axios.get(`http://localhost:8000/api/director/managers`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`http://localhost:8000/api/director/attendance`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`http://localhost:8000/api/director/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`http://localhost:8000/api/director/progress-report`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`http://localhost:8000/api/director/leaves`, { headers: { Authorization: `Bearer ${token}` } }),
-          axios.get(`http://localhost:8000/api/director/employees`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`https://nts-erp-system-629k.vercel.app/api/director/managers`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.gethttps://nts-erp-system-629k.vercel.app/api/director/attendance`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`https://nts-erp-system-629k.vercel.app/api/director/leaves`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`https://nts-erp-system-629k.vercel.app/api/director/employees`, { headers: { Authorization: `Bearer ${token}` } }),
         ]);
  // Normalize data
       const rawManagers = Array.isArray(managersRes.data) ? managersRes.data : [];
