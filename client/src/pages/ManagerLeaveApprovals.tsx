@@ -92,7 +92,7 @@ const fetchManagerAndTeamLeaves = async () => {
   }
 
   try {
-    const response = await fetch(`http://localhost:8000/api/director/manager-team-leaves`, {
+    const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/manager-team-leaves`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -129,7 +129,7 @@ const fetchManagerAndTeamLeaves = async () => {
     }
 
     try {
-     const response = await fetch(`http://localhost:8000/api/director/leaves/${leaveId}/director-approve`, {
+     const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/leaves/${leaveId}/director-approve`, {
 
         method: 'PATCH',
         headers: {
