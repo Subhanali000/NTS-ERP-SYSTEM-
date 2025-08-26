@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, CheckCircle, Clock, User, Calendar, Award, Target, BarChart3, Filter, Search, Users, Star, Trophy, Zap, Activity, Brain, Heart } from 'lucide-react';
-import { getCurrentUser, isDirector, isManager } from '../utils/auth';
-import { formatDate, getRelativeDate } from '../utils/dateUtils';
-import { getRoleDisplayName } from '../utils/auth';
 import { Bar, Line, Doughnut, Radar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -19,6 +16,7 @@ import {
 } from 'chart.js';
 import axios from 'axios';
 
+// Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -31,112 +29,404 @@ ChartJS.register(
   ArcElement,
   RadialLinearScale
 );
-interface Task {
+
+// Mock auth functions (replace with actual implementation)
+const getCurrentUser = () => ({
+  id: '1',
+  name: 'Director User',
+  role: 'director',
+  email: 'director@company.com'
+});
+
+const isDirector = (role: string) => role === 'director';
+const isManager = (role: string) => role === 'manager';
+
+// Mock utility functions
+const formatDate = (date: string) => new Date(date).toLocaleDateString();
+const getRelativeDate = (date: string) => {
+  const now = new Date();
+  const targetDate = new Date(date);
+  const diffTime = Math.abs(now.getTime() - targetDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return `${diffDays} days ago`;
+};
+
+const getRoleDisplayName = (role: string) => {
+  const roleMap: { [key: string]: string } = {
+    'director': 'Director',
+    'manager': 'Manager',
+    'employee': 'Employee',
+    'admin': 'Administrator'
+  };
+  return roleMap[role] || role.charAt(0).toUpperCase() + role.slice(1);
+};
+
+// ---------------- TYPES ----------------
+// ---------------- TYPES ----------------
+type Task = { 
+  id: string; 
+  title: string; 
+  status: 'completed' | 'in-progress' | 'pending'; 
+  progressPct?: number; 
+  deadline: string; 
+  completedAt?: string;
+  managerId?: string;
+  employeeId?: string;
+};
+
+type Attendance = { 
+  date: string; 
+  status: 'present' | 'late' | 'absent';
+  managerId?: string;
+  employeeId?: string;
+};
+
+type Request = { 
+  id: string; 
+  type: string; 
+  status: 'approved' | 'rejected' | 'pending';
+  managerId?: string;
+  employeeId?: string;
+};
+
+type ProgressReport = { 
+  id: string; 
+  progress_percent?: number; 
+  submittedAt?: string;
+  submitted_at?: string;
+  date?: string;
+  user_id?: string;
+  managerId?: string;
+};
+
+type Employee = { 
+  id: string; 
+  name: string; 
+  efficiency: number; 
+  tasks: Task[];
+  attendance?: Attendance[];
+  requests?: Request[];
+  progressReports?: ProgressReport[];
+  progressTrend?: number;
+  managerId?: string;
+};
+
+type Manager = {
   id: string;
-  title: string;
-  status: string;
-  due_date: string;
-  user_id: string;
-   progressPct?: number; 
-}
+  name: string;
+  email: string;
+  department: string;
+  role: string;
+  joinDate: string;
+  avatar: string;
+  tasks: Task[];
+  employees: Employee[];
+  progressReports: ProgressReport[];
+  attendance: Attendance[];
+  requests: Request[];
+  profile_photo:string;
+  progressTrend?: number;
+};
+
+// ---------------- HELPERS ----------------
+
+const getProgressTrend = (reports: ProgressReport[]) => {
+  if (!reports || reports.length === 0) {
+ 
+    return 0;
+  }
+
+  // Only keep reports that have at least one valid date
+  const validReports = reports.filter(r =>
+    r.submittedAt || r.submitted_at || r.date
+  );
+
+  if (validReports.length === 0) {
+   
+    return 0;
+  }
+
+  const sorted = [...validReports].sort(
+    (a, b) =>
+      new Date(a.submittedAt ?? a.submitted_at ?? a.date!).getTime() -
+      new Date(b.submittedAt ?? b.submitted_at ?? b.date!).getTime()
+  );
+
+  if (sorted.length === 1) {
+    const singleProgress = sorted[0].progress_percent ?? 0;
+    
+    return singleProgress;
+  }
+
+  const latest = sorted[sorted.length - 1].progress_percent ?? 0;
+  const prev = sorted[sorted.length - 2].progress_percent ?? 0;
+
+ 
+
+  if (prev === 0) return +(latest - prev).toFixed(1);
+
+  return +(((latest - prev) / prev) * 100).toFixed(1);
+};
+
+
+// ---------------- PERFORMANCE FUNCTION ----------------
+const getPerformanceMetrics = (manager: Manager) => {
+ 
+  // --- Manager task metrics ---
+  const completedTasks = manager.tasks.filter(t => t.status === 'completed').length;
+  const totalTasks = manager.tasks.length;
+  const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const avgProgress = totalTasks > 0
+    ? manager.tasks.reduce((sum, t) => sum + (t.progressPct || 0), 0) / totalTasks
+    : 0;
+
+  // --- Attendance ---
+  const attendanceRate = manager.attendance.length > 0
+    ? (manager.attendance.filter(a => a.status === 'present' || a.status === 'late').length / manager.attendance.length) * 100
+    : 0;
+
+  // --- Team metrics ---
+  const teamTasks = manager.employees.flatMap(e => e.tasks || []);
+  const completedTeamTasks = teamTasks.filter(t => t.status === 'completed').length;
+  const teamTaskRate = teamTasks.length > 0 ? (completedTeamTasks / teamTasks.length) * 100 : 0;
+  const teamManagementScore = Math.round(teamTaskRate);
+
+  const employeeEfficiencies = manager.employees.map(e => e.efficiency || 0);
+  const avgEfficiency = employeeEfficiencies.length > 0
+    ? employeeEfficiencies.reduce((a, b) => a + b, 0) / employeeEfficiencies.length
+    : 0;
+
+  // --- Request handling ---
+  const requestHandling = manager.requests.length > 0
+    ? (manager.requests.filter(r => r.status !== 'pending').length / manager.requests.length) * 100
+    : 100;
+
+  const leadershipScore = Math.round((avgEfficiency + attendanceRate + requestHandling) / 3);
+
+  // --- Deadline performance ---
+  const deadlinePerformance = manager.tasks.length > 0
+    ? manager.tasks.reduce((sum, t) => {
+        if (t.completedAt) {
+          const daysBeforeDeadline = (new Date(t.deadline).getTime() - new Date(t.completedAt).getTime()) / (1000 * 60 * 60 * 24);
+          return sum + (daysBeforeDeadline >= 0 ? 100 : 60);
+        }
+        return sum;
+      }, 0) / manager.tasks.length
+    : 0;
+
+  const strategicThinkingScore = Math.round(deadlinePerformance);
+
+  // --- Communication score ---
+  const totalRequests = manager.requests.length;
+  const decidedRequests = manager.requests.filter(r => r.status !== 'pending').length;
+  const requestHandlingScore = totalRequests > 0 ? (decidedRequests / totalRequests) * 100 : 100;
+
+  const expectedReports = 4;
+  const reportScore = manager.progressReports.length >= expectedReports
+    ? 100
+    : (manager.progressReports.length / expectedReports) * 100;
+
+  const communicationScore = Math.round((requestHandlingScore + reportScore) / 2);
+
+  // --- Overall management score ---
+  const managementScore = Math.round(
+    (leadershipScore * 0.25) +
+    (teamManagementScore * 0.25) +
+    (strategicThinkingScore * 0.25) +
+    (communicationScore * 0.25)
+  );
+
+  // --- Progress trend ---
+  const progressTrend = typeof manager.progressTrend === 'number'
+    ? manager.progressTrend
+    : getProgressTrend(manager.progressReports);
+
+  const metrics = {
+    completionRate: Math.round(completionRate),
+    avgProgress: Math.round(avgProgress),
+    attendanceRate: Math.round(attendanceRate),
+    teamManagementScore,
+    leadershipScore,
+    strategicThinkingScore,
+    communicationScore,
+    managementScore,
+    performanceScore: managementScore,
+    progressTrend,
+  };
+
+  console.log('Calculated metrics:', metrics);
+  return metrics;
+};
+
+
+
+
+
+
+// ---------------- MAIN COMPONENT ----------------
 const IndividualProgress: React.FC = () => {
   const user = getCurrentUser();
-  const [selectedUser, setSelectedUser] = useState<string>('');
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [managers, setManagers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
 
   const isDir = user ? isDirector(user.role) : false;
 
   useEffect(() => {
-    const fetchManagers = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found');
+  const fetchManagers = async () => {
+    try {
+      setLoading(true);
+      console.log('Starting to fetch managers data...');
 
-        const response = await axios.get(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setManagers(Array.isArray(response.data) ? response.data : response.data?.data || []);
-      } catch (error) {
-        console.error('Error fetching managers:', error);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('❌ No authentication token found');
         setManagers([]);
-      } finally {
         setLoading(false);
+        return;
       }
-    };
 
-    if (isDir) {
-      fetchManagers();
+      console.log('Fetching data from API with token:', token.substring(0, 20) + '...');
+
+      const [managersRes, attendanceRes, tasksRes, reportsRes, requestsRes, employeesRes] =
+        await Promise.all([
+          axios.get(`http://localhost:8000/api/director/managers`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`http://localhost:8000/api/director/attendance`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`http://localhost:8000/api/director/tasks`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`http://localhost:8000/api/director/progress-report`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`http://localhost:8000/api/director/leaves`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`http://localhost:8000/api/director/employees`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+ // Normalize data
+      const rawManagers = Array.isArray(managersRes.data) ? managersRes.data : [];
+      const tasks = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+      const attendance = Array.isArray(attendanceRes.data) ? attendanceRes.data : [];
+      const reports = Array.isArray(reportsRes.data) ? reportsRes.data : [];
+      const requests = Array.isArray(requestsRes.data) ? requestsRes.data : [];
+      const employees = Array.isArray(employeesRes.data) ? employeesRes.data : [];
+
+      // Build combined manager objects
+      const combinedManagers: Manager[] = rawManagers.map((m: any) => {
+        const managerReports = reports.filter((r: ProgressReport) => r.user_id === m.id || r.managerId === m.id);
+
+        const managerEmployees = employees
+          .filter((e: any) => e.managerId === m.id)
+          .map((e: any) => {
+            const employeeReports = reports.filter((r: ProgressReport) => r.user_id === e.id);
+
+            return {
+              ...e,
+              tasks: tasks.filter((t: Task) => t.employeeId === e.id),
+              attendance: attendance.filter((a: Attendance) => a.employeeId === e.id),
+              requests: requests.filter((rq: Request) => rq.employeeId === e.id),
+              progressReports: employeeReports,
+              progressTrend: getProgressTrend(employeeReports),
+            };
+          });
+
+        return {
+          ...m,
+          profile_photo: m.profile_photo || m.avatar || '',
+          joinDate: m.joinDate || '2023-01-01',
+          tasks: tasks.filter((t: Task) => t.managerId === m.id),
+          employees: managerEmployees,
+          progressReports: managerReports,
+          attendance: attendance.filter((a: Attendance) => a.managerId === m.id),
+          requests: requests.filter((rq: Request) => rq.managerId === m.id),
+          progressTrend: getProgressTrend(managerReports),
+        };
+      });
+
+      console.log('✅ Combined managers data:', combinedManagers);
+      setManagers(combinedManagers);
+
+    } catch (error: any) {
+      console.error('❌ Error fetching managers:', error);
+      if (axios.isAxiosError(error)) {
+        console.error({
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+      }
+      setManagers([]);
+    } finally {
+      setLoading(false);
     }
-  }, [isDir]);
+  };
 
-  const filteredUsers = managers.filter(u => {
-    const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         u.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDepartment = !selectedDepartment || u.department === selectedDepartment;
+  if (isDir) fetchManagers();
+  else setLoading(false);
+}, [isDir]);
+
+  // Get unique departments
+  const departments = [...new Set(managers.map(m => m.department))];
+  console.log('Available departments:', departments);
+
+  // Filter managers based on search and department
+  const filteredUsers = managers.filter(manager => {
+    const matchesSearch = manager.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         manager.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDepartment = !selectedDepartment || manager.department === selectedDepartment;
     return matchesSearch && matchesDepartment;
   });
 
-  const departments = [...new Set(managers.map(u => u.department))];
 
-  const getPerformanceMetrics = (userId: string) => {
-    const userTasks = managers.find(u => u.id === userId)?.tasks || [];
-    const userReports = managers.find(u => u.id === userId)?.progressReports || [];
-    const userAttendance = managers.find(u => u.id === userId)?.attendance || [];
-    
-   const completedTasks = userTasks.filter((t: Task) => t.status === 'completed').length;
-    
-    const totalTasks = userTasks.length;
-    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-    
-    const avgProgress = userTasks.length > 0
-  ? userTasks.reduce((sum: number, task: Task) => sum + (task.progressPct || 0), 0) / userTasks.length
-  : 0;
 
-    
-    const attendanceRate = userAttendance.length > 0
-      ? (userAttendance.filter((a: { status: string; }) => a.status === 'present' || a.status === 'late').length / userAttendance.length) * 100
-      : 0;
-    
-    const recentReports = userReports.slice(-5);
-    const progressTrend = recentReports.length > 1 
-      ? recentReports[recentReports.length - 1].progress - recentReports[0].progress
-      : 0;
+  // ✅ Selected manager data
+  const selectedUserData = selectedUser
+    ? managers.find(u => u.id === selectedUser)
+    : null;
 
-    const basePerformance = Math.round((completionRate + avgProgress + attendanceRate) / 3);
-    const performanceVariation = Math.random() * 15 - 7.5;
-    const finalPerformance = Math.max(70, Math.min(100, basePerformance + performanceVariation));
+  const selectedUserMetrics = selectedUserData
+    ? getPerformanceMetrics(selectedUserData)
+    : null;
 
-    const leadershipScore = Math.round(80 + Math.random() * 20);
-    const teamManagementScore = Math.round(75 + Math.random() * 25);
-    const strategicThinkingScore = Math.round(78 + Math.random() * 22);
-    const communicationScore = Math.round(82 + Math.random() * 18);
 
-    return {
-      completedTasks: completedTasks > 0 ? completedTasks : Math.floor(Math.random() * 12) + 8,
-      totalTasks: totalTasks > 0 ? totalTasks : Math.floor(Math.random() * 18) + 12,
-      completionRate: Math.round(completionRate > 0 ? completionRate : 75 + Math.random() * 25),
-      avgProgress: Math.round(avgProgress > 0 ? avgProgress : 70 + Math.random() * 30),
-      attendanceRate: Math.round(attendanceRate > 0 ? attendanceRate : 88 + Math.random() * 12),
-      progressTrend: progressTrend !== 0 ? progressTrend : (Math.random() * 15) - 7.5,
-      recentReports: recentReports.length > 0 ? recentReports.length : Math.floor(Math.random() * 8) + 5,
-      performanceScore: Math.round(finalPerformance),
-      leadershipScore,
-      teamManagementScore,
-      strategicThinkingScore,
-      communicationScore,
-      decisionMakingScore: Math.round(76 + Math.random() * 24),
-      innovationScore: Math.round(72 + Math.random() * 28),
-      collaborationScore: Math.round(85 + Math.random() * 15),
-      workEthic: Math.round(85 + Math.random() * 15),
-      consistency: Math.round(80 + Math.random() * 20),
-      growth: Math.round(75 + Math.random() * 25)
-    };
+
+
+  // ✅ Example: Performance Comparison Chart
+  const performanceComparisonData = {
+    labels: managers.slice(0, 10).map(u => u.name.split(" ")[0]),
+    datasets: [
+      {
+        label: "Management Performance Score",
+        data: managers.slice(0, 10).map(u => getPerformanceMetrics(u).managementScore),
+        backgroundColor: "rgba(59, 130, 246, 0.8)",
+        borderColor: "rgba(59, 130, 246, 1)",
+        borderWidth: 2,
+        borderRadius: 8,
+      },
+    ],
   };
+
+  // ✅ Radar chart for selected user
+  const leadershipRadarData = selectedUserMetrics
+    ? {
+        labels: ["Leadership", "Team Management", "Strategic Thinking", "Communication"],
+        datasets: [
+          {
+            label: "Leadership Assessment",
+            data: [
+              selectedUserMetrics.leadershipScore,
+              selectedUserMetrics.teamManagementScore,
+              selectedUserMetrics.strategicThinkingScore,
+              selectedUserMetrics.communicationScore,
+            ],
+            backgroundColor: "rgba(139, 92, 246, 0.2)",
+            borderColor: "rgba(139, 92, 246, 1)",
+            borderWidth: 2,
+            pointBackgroundColor: "rgba(139, 92, 246, 1)",
+            pointBorderColor: "#fff",
+            pointHoverBackgroundColor: "#fff",
+            pointHoverBorderColor: "rgba(139, 92, 246, 1)",
+          },
+        ],
+      }
+    : null;
 
   const getPerformanceColor = (score: number) => {
     if (score >= 90) return 'text-emerald-600';
@@ -167,47 +457,6 @@ const IndividualProgress: React.FC = () => {
     if (score >= 60) return "Developing leadership skills";
     return "Needs leadership development";
   };
-
-  const selectedUserData = selectedUser ? managers.find(u => u.id === selectedUser) : null;
-  const selectedUserMetrics = selectedUser ? getPerformanceMetrics(selectedUser) : null;
-
-  const performanceComparisonData = {
-    labels: filteredUsers.slice(0, 10).map(u => u.name.split(' ')[0]),
-    datasets: [
-      {
-        label: 'Management Performance Score',
-        data: filteredUsers.slice(0, 10).map(u => getPerformanceMetrics(u.id).performanceScore),
-        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-        borderColor: 'rgba(59, 130, 246, 1)',
-        borderWidth: 2,
-        borderRadius: 8,
-      }
-    ],
-  };
-
-  const leadershipRadarData = selectedUserMetrics ? {
-    labels: ['Leadership', 'Team Management', 'Strategic Thinking', 'Communication', 'Decision Making', 'Innovation'],
-    datasets: [
-      {
-        label: 'Leadership Assessment',
-        data: [
-          selectedUserMetrics.leadershipScore,
-          selectedUserMetrics.teamManagementScore,
-          selectedUserMetrics.strategicThinkingScore,
-          selectedUserMetrics.communicationScore,
-          selectedUserMetrics.decisionMakingScore,
-          selectedUserMetrics.innovationScore
-        ],
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-        borderColor: 'rgba(139, 92, 246, 1)',
-        borderWidth: 2,
-        pointBackgroundColor: 'rgba(139, 92, 246, 1)',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgba(139, 92, 246, 1)'
-      }
-    ],
-  } : null;
 
   const chartOptions = {
     responsive: true,
@@ -258,13 +507,23 @@ const IndividualProgress: React.FC = () => {
         pointLabels: {
           font: {
             size: 12,
-           weight: 'bold' as 'bold', // ✅ cast to exact allowed value
-        } as any,// Allowed value: "bold"
-          
+            weight: 'bold' as const,
+          },
         }
       },
     },
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600">Loading manager data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -302,8 +561,8 @@ const IndividualProgress: React.FC = () => {
             ))}
           </select>
           <select
-            value={selectedUser}
-            onChange={(e) => setSelectedUser(e.target.value)}
+            value={selectedUser || ''}
+            onChange={(e) => setSelectedUser(e.target.value || null)}
             className="border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm min-w-80"
           >
             <option value="">Select for detailed analysis...</option>
@@ -315,7 +574,7 @@ const IndividualProgress: React.FC = () => {
           </select>
           <select
             value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value as any)}
+            onChange={(e) => setSelectedPeriod(e.target.value as 'week' | 'month' | 'quarter')}
             className="border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
           >
             <option value="week">This Week</option>
@@ -327,10 +586,8 @@ const IndividualProgress: React.FC = () => {
 
       {/* Manager Performance Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {loading ? (
-          <p>Loading...</p>
-        ) : filteredUsers.slice(0, 12).map(manager => {
-          const metrics = getPerformanceMetrics(manager.id);
+        {filteredUsers.slice(0, 12).map(manager => {
+          const metrics = getPerformanceMetrics(manager);
           const badge = getPerformanceBadge(metrics.performanceScore);
           const BadgeIcon = badge.icon;
           
@@ -343,16 +600,18 @@ const IndividualProgress: React.FC = () => {
               onClick={() => setSelectedUser(manager.id)}
             >
               <div className="flex items-center space-x-4 mb-6">
-                <div className="relative">
-                  <img
-                    src={manager.avatar}
-                    alt={manager.name}
-                    className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-lg"
-                  />
-                  <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-400 to-indigo-500 rounded-full p-1">
-                    <BadgeIcon className="w-4 h-4 text-white" />
-                  </div>
-                </div>
+  <div className="relative">
+    <img
+      src={manager.profile_photo || '/default-avatar.png'}
+      alt={manager.name}
+      className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-lg"
+    />
+    <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-400 to-indigo-500 rounded-full p-1">
+      <BadgeIcon className="w-4 h-4 text-white" />
+    </div>
+  </div>
+
+
                 <div className="flex-1">
                   <h4 className="font-bold text-gray-900 text-lg">{manager.name}</h4>
                   <p className="text-sm text-gray-600 font-medium">{getRoleDisplayName(manager.role)}</p>
@@ -379,21 +638,28 @@ const IndividualProgress: React.FC = () => {
                     style={{ width: `${metrics.performanceScore}%` }}
                   />
                 </div>
+<div className="flex items-center justify-between">
+  <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${badge.color}`}>
+    {badge.label}
+  </span>
+  <div className="flex items-center space-x-1">
+    {getTrendIcon(manager.progressTrend ?? 0)}
+    <span
+      className={`text-xs font-bold ${
+        (manager.progressTrend ?? 0) > 0
+          ? 'text-green-600'
+          : (manager.progressTrend ?? 0) < 0
+          ? 'text-red-600'
+          : 'text-gray-600'
+      }`}
+    >
+      {(manager.progressTrend ?? 0) > 0 ? '+' : ''}
+      {(manager.progressTrend ?? 0).toFixed(1)}
+    </span>
+  </div>
+</div>
 
-                <div className="flex items-center justify-between">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${badge.color}`}>
-                    {badge.label}
-                  </span>
-                  <div className="flex items-center space-x-1">
-                    {getTrendIcon(metrics.progressTrend)}
-                    <span className={`text-xs font-bold ${
-                      metrics.progressTrend > 0 ? 'text-green-600' : 
-                      metrics.progressTrend < 0 ? 'text-red-600' : 'text-gray-600'
-                    }`}>
-                      {metrics.progressTrend > 0 ? '+' : ''}{metrics.progressTrend.toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
+
 
                 <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-200">
                   <div className="text-center bg-purple-50 rounded-lg p-2">
@@ -432,10 +698,11 @@ const IndividualProgress: React.FC = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-6">
               <img
-                src={selectedUserData.avatar}
-                alt={selectedUserData.name}
-                className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-100 shadow-lg"
-              />
+  src={selectedUserData.profile_photo || '/default-avatar.png'} // fallback if empty
+  alt={selectedUserData.name}
+  className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-100 shadow-lg"
+/>
+
               <div>
                 <h2 className="text-3xl font-bold text-gray-900">{selectedUserData.name}</h2>
                 <p className="text-xl text-gray-600 font-medium">{getRoleDisplayName(selectedUserData.role)}</p>
