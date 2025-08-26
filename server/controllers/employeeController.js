@@ -1,4 +1,5 @@
 // ✅ Correct import
+
 const { supabase } = require('../config/supabase');
 // controller
 exports.updateAttendance = async (req, res) => {
@@ -15,68 +16,6 @@ exports.updateAttendance = async (req, res) => {
   res.status(200).json({ message: 'Attendance updated successfully' });
 };
 
-exports.getOverview = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    // Helper to format date as YYYY-MM-DD
-    const formatDate = (d) => {
-      const date = new Date(d);
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const dd = String(date.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    };
-
-    const today = formatDate(new Date());
-
-    // 1️⃣ Tasks
-    const { data: tasks, error: taskError } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", userId);
-    if (taskError) throw taskError;
-
-    const totalTasks = tasks.length;
-    const completedTasks = tasks.filter(t => t.status === "completed").length;
-
-    // 2️⃣ All leaves (no filtering by user or approval)
-    const { data: leaves, error: leaveError } = await supabase
-      .from("leaves")
-      .select("*"); // fetch everything
-    if (leaveError) throw leaveError;
-
-    console.log(`Fetched ${leaves.length} total leaves from DB`);
-
-    // 3️⃣ Daily Progress Status
-    const { data: progress, error: progressError } = await supabase
-      .from("daily_progress")
-      .select("date")
-      .eq("user_id", userId)
-      .order("date", { ascending: false })
-      .limit(1);
-    if (progressError) throw progressError;
-
-    let dailyProgressStatus = "No Update";
-    if (progress?.length) {
-      const lastDate = formatDate(progress[0].date);
-      dailyProgressStatus =
-        lastDate === today ? "submitted" : `Last submitted on ${lastDate}`;
-    }
-
-    // ✅ Response
-    res.json({
-      totalTasks,
-      completedTasks,
-      dailyProgressStatus,
-      leaves, // send all leaves; frontend filters by user and status
-    });
-
-  } catch (err) {
-    console.error("Error fetching employee overview:", err.message);
-    res.status(500).json({ error: "Server error fetching overview" });
-  }
-};
 
 // ✅ Submit Attendance
 exports.submitAttendance = async (req, res) => {
@@ -95,52 +34,132 @@ exports.submitAttendance = async (req, res) => {
   res.status(201).json({ message: 'Attendance submitted' });
 };
 
-// ✅ Apply for Leave
+// ✅ Apply for Leave with single notification for manager & director
 exports.applyLeave = async (req, res) => {
   const { leave_type, start_date, end_date, reason } = req.body;
   const userId = req.user.id;
 
-  const { error } = await supabase.from('leaves').insert({
-    user_id: userId,
-    leave_type,
-    start_date,
-    end_date,
-    reason,
-    manager_approval: 'pending',
-    director_approval: 'pending',
-  });
+  try {
+    // 1️⃣ Insert leave request
+    const { data: leaveData, error: leaveError } = await supabase
+      .from('leaves')
+      .insert({
+        user_id: userId,
+        leave_type,
+        start_date,
+        end_date,
+        reason,
+        manager_approval: 'pending',
+        director_approval: 'pending',
+      })
+      .select()
+      .single();
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.status(201).json({ message: 'Leave request submitted' });
+    if (leaveError) return res.status(400).json({ error: leaveError.message });
+
+    // 2️⃣ Fetch employee details (to get manager_id and director_id)
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('id, name, manager_id, director_id')
+      .eq('id', userId)
+      .single();
+
+    if (empError) return res.status(400).json({ error: empError.message });
+
+    // 3️⃣ Create ONE notification including manager and director, store employee_id
+    const notification = {
+      source_id: leaveData.id,
+      type: 'leave',
+      message: `Leave request submitted by ${employee.name} 🗓️`,
+      created_by: userId,           // who created the leave
+      employee_id: userId,          // ✅ store the applicant in employee_id
+      manager_id: employee.manager_id || null,
+      director_id: employee.director_id || null,
+      employee_action: 'unread',   // mark employee notification if needed
+      manager_action: employee.manager_id ? 'unread' : null,
+      director_action: employee.director_id ? 'unread' : null,
+    };
+
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert([notification]);
+
+    if (notifError) console.error('❌ Failed to create notification:', notifError.message);
+
+    res.status(201).json({ message: 'Leave request submitted', leave: leaveData });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit leave request' });
+  }
 };
 
-// ✅ Submit Task Progress
+
+
+
+// ✅ Submit Task Progress with manager notification
 exports.submitTaskProgress = async (req, res) => {
   const { task_id, progress } = req.body;
   const userId = req.user.id;
 
-  const { error } = await supabase
-    .from('tasks')
-    .update({
-      progress,
-      status: progress === 100 ? 'completed' : 'in_progress',
-    })
-    .eq('id', task_id)
-    .eq('user_id', userId);
+  try {
+    // 1️⃣ Update task progress
+    const { error: taskError, data: taskData } = await supabase
+      .from('tasks')
+      .update({
+        progress,
+        status: progress === 100 ? 'completed' : 'in_progress',
+      })
+      .eq('id', task_id)
+      .eq('user_id', userId)
+      .select()
+      .single();
 
-  if (error) return res.status(400).json({ error: error.message });
-  res.status(200).json({ message: 'Task progress updated' });
+    if (taskError) return res.status(400).json({ error: taskError.message });
+
+    // 2️⃣ Fetch the employee to get manager_id
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('id, name, manager_id')
+      .eq('id', userId)
+      .single();
+
+    if (empError) return res.status(400).json({ error: empError.message });
+
+    // 3️⃣ Create notification for manager if exists
+    if (employee.manager_id) {
+      const notification = {
+        source_id: task_id,
+        type: 'task',
+        message: `Task progress updated by ${employee.name} 📋`,
+        created_by: userId,        // employee updated the task
+        manager_id: employee.manager_id,
+        manager_action: 'unread',
+      };
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert([notification]);
+
+      if (notifError) console.error('❌ Failed to create task notification:', notifError.message);
+    }
+
+    res.status(200).json({ message: 'Task progress updated', task: taskData });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update task progress' });
+  }
 };
+
 exports.submitDailyProgress = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { content, date ,comment} = req.body;
+    const { content, date, comment } = req.body;
     const files = req.files;
 
     // Validate required fields
     if (!comment || !date) {
-  return res.status(400).json({ error: 'Comment and date are required' });
-}
+      return res.status(400).json({ error: 'Comment and date are required' });
+    }
 
     let attachmentUrls = [];
 
@@ -176,8 +195,7 @@ exports.submitDailyProgress = async (req, res) => {
       .insert({
         user_id: userId,
         content,
-        comment: comment || '', // fallback to empty string if comment is missing
-
+        comment,
         date,
         attachments: attachmentUrls,
         submitted_at: new Date().toISOString(),
@@ -191,6 +209,33 @@ exports.submitDailyProgress = async (req, res) => {
       return res.status(400).json({ error: insertError.message });
     }
 
+    // ✅ Fetch employee to get manager_id
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('id, name, manager_id')
+      .eq('id', userId)
+      .single();
+
+    if (empError) console.error('Failed to fetch employee:', empError.message);
+
+    // ✅ Create notification for manager
+    if (employee?.manager_id) {
+      const notification = {
+        source_id: insertedData.id,
+        type: 'daily_progress',
+        message: `Daily progress submitted by ${employee.name} 📝`,
+        created_by: userId,
+        manager_id: employee.manager_id,
+        manager_action: 'unread',
+      };
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert([notification]);
+
+      if (notifError) console.error('Failed to create notification:', notifError.message);
+    }
+
     res.status(201).json(insertedData);
 
   } catch (err) {
@@ -199,42 +244,79 @@ exports.submitDailyProgress = async (req, res) => {
   }
 };
 
-
 exports.submitProgressReport = async (req, res) => {
-  const {
-    report_date,
-    accomplishments,
-    challenges,
-    tomorrow_plan,
-    tasks,
-    progress_percent
-  } = req.body;
-
-  const user = req.user;
-
-  if (!accomplishments) {
-    return res.status(400).json({ error: 'Accomplishments are required' });
-  }
-
-  const { error, data } = await supabase.from('progress_reports').insert([
-    {
-      user_id: user.id,
-      role: user.role,
-      report_date: report_date || new Date().toISOString().split('T')[0],
+  try {
+    const {
+      report_date,
       accomplishments,
-      challenges: challenges || null,
-      tomorrow_plan: tomorrow_plan || null,
-      task_completed: tasks ?? [], // ✅ REAL FIX
-      progress_percent: progress_percent ?? 0,
-      submitted_at: new Date().toISOString()
+      challenges,
+      tomorrow_plan,
+      tasks,
+      progress_percent
+    } = req.body;
+
+    const user = req.user;
+
+    if (!accomplishments) {
+      return res.status(400).json({ error: 'Accomplishments are required' });
     }
-  ]);
 
-  if (error) {
-    return res.status(400).json({ error: error.message });
+    // 1️⃣ Insert progress report
+    const { data: reportData, error: insertError } = await supabase.from('progress_reports').insert([
+      {
+        user_id: user.id,
+        role: user.role,
+        report_date: report_date || new Date().toISOString().split('T')[0],
+        accomplishments,
+        challenges: challenges || null,
+        tomorrow_plan: tomorrow_plan || null,
+        task_completed: tasks ?? [],
+        progress_percent: progress_percent ?? 0,
+        submitted_at: new Date().toISOString()
+      }
+    ]).select().single();
+
+    if (insertError) {
+      return res.status(400).json({ error: insertError.message });
+    }
+
+    // 2️⃣ Fetch employee to get manager and director
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('id, name, manager_id, director_id')
+      .eq('id', user.id)
+      .single();
+
+    if (empError) console.error('Failed to fetch employee:', empError.message);
+
+    // 3️⃣ Create a single notification for manager, director & employee
+if (employee) {
+  const notification = {
+    source_id: reportData.id,
+    type: 'progress_report',
+    message: `Progress report submitted by ${employee.name} 📄`,
+    created_by: user.id,
+    employee_id: employee.id,   // ✅ Employee who submitted
+    manager_id: employee.manager_id || null,
+    director_id: employee.director_id || null,
+    employee_action: 'unread',  // ✅ add tracking for employee too
+    manager_action: employee.manager_id ? 'unread' : null,
+    director_action: employee.director_id ? 'unread' : null,
+  };
+
+  const { error: notifError } = await supabase
+    .from('notifications')
+    .insert([notification]);
+
+  if (notifError) console.error('Failed to create notification:', notifError.message);
+}
+
+    res.status(201).json({ message: 'Progress submitted', report: reportData });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to submit progress report' });
   }
-
-  res.status(201).json({ message: 'Progress submitted', report: data?.[0] });
 };
 
 
@@ -372,7 +454,6 @@ exports.getTasks = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
 // controllers/employeeController.js
 exports.updateTaskProgress = async (req, res) => {
   try {
@@ -380,14 +461,13 @@ exports.updateTaskProgress = async (req, res) => {
     const { task_id, status, progress_percent, comment } = req.body;
 
     // 🔍 Log incoming data
-   console.log('📥 Incoming Task Progress Update Request:', {
-  user_id,
-  task_id,
-  status,
-  progress_percent,
-  comment
-});
-
+    console.log('📥 Incoming Task Progress Update Request:', {
+      user_id,
+      task_id,
+      status,
+      progress_percent,
+      comment
+    });
 
     // ❗ Validate required fields
     if (!task_id || progress_percent == null || !status) {
@@ -395,21 +475,7 @@ exports.updateTaskProgress = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // 🛠️ Set valid priority
-    const allowedPriorities = ['low', 'medium', 'high'];
-    let priority = 'medium'; // default
-
-    if (status === 'completed') priority = null;
-    else if (status === 'in_progress') priority = 'high';
-
-    if (!allowedPriorities.includes(priority)) {
-      console.warn(`⚠️ Invalid priority value: ${priority}. Falling back to 'medium'.`);
-      priority = 'medium';
-    }
-
-    console.log('📌 Using priority:', priority);
-
-    // 1️⃣ Upsert into progress table
+    // 1️⃣ Upsert progress
     const { data: progressData, error: progressError } = await supabase
       .from('progress')
       .upsert(
@@ -423,9 +489,7 @@ exports.updateTaskProgress = async (req, res) => {
             progress_type: 'update'
           }
         ],
-        {
-          onConflict: ['task_id', 'user_id']
-        }
+        { onConflict: ['task_id', 'user_id'] }
       );
 
     if (progressError) {
@@ -434,14 +498,9 @@ exports.updateTaskProgress = async (req, res) => {
     }
 
     // 2️⃣ Update task table
-    console.log('⚙️ Attempting to update task with ID:', task_id);
-
     const { data: taskUpdateData, error: taskError } = await supabase
       .from('tasks')
-      .update({
-        status,
-        priority
-      })
+      .update({ status })
       .eq('id', task_id)
       .select('*');
 
@@ -459,27 +518,46 @@ exports.updateTaskProgress = async (req, res) => {
         .select('status')
         .eq('project_id', project_id);
 
-      if (fetchError) {
-        console.error('⚠️ Could not fetch task statuses for project:', fetchError.message);
-      } else {
+      if (!fetchError) {
         const statuses = taskStatuses.map(t => t.status);
         let projectStatus = 'active';
-
-        if (statuses.every(s => s === 'completed')) {
-          projectStatus = 'completed';
-        } else if (statuses.every(s => s === 'assigned')) {
-          projectStatus = 'pending';
-        }
+        if (statuses.every(s => s === 'completed')) projectStatus = 'completed';
+        else if (statuses.every(s => s === 'assigned')) projectStatus = 'pending';
 
         const { error: projectError } = await supabase
           .from('projects')
           .update({ status: projectStatus })
           .eq('id', project_id);
 
-        if (projectError) {
-          console.warn('⚠️ Project status update failed:', projectError.message);
-        }
+        if (projectError) console.warn('⚠️ Project status update failed:', projectError.message);
       }
+    }
+
+    // 4️⃣ Fetch manager_id of the user
+    const { data: employee, error: empError } = await supabase
+      .from('employees')
+      .select('manager_id, name')
+      .eq('id', user_id)
+      .single();
+
+    if (empError) console.error('⚠️ Could not fetch employee info:', empError.message);
+
+    // 5️⃣ Create notification for manager
+    if (employee && employee.manager_id) {
+      const notification = {
+        source_id: task_id,
+        type: 'task_progress',
+        message: `${employee.name} updated task progress 📋`,
+        created_by: user_id,
+        manager_id: employee.manager_id,
+        manager_action: 'unread'
+      };
+
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert([notification]);
+
+      if (notifError) console.error('❌ Failed to create notification:', notifError.message);
     }
 
     // ✅ Final response
@@ -494,7 +572,6 @@ exports.updateTaskProgress = async (req, res) => {
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
-
 
 
 exports.getProgressreport = async (req, res) => {
@@ -605,3 +682,69 @@ exports.getProgress = async (req, res) => {
 
   res.status(200).json(data);
 };
+///////////////////overviewsidebar////////////
+// controllers/employeeController.js
+exports.getOverview = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Helper to format date as YYYY-MM-DD
+    const formatDate = (d) => {
+      const date = new Date(d);
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    const today = formatDate(new Date());
+
+    // 1️⃣ Tasks
+    const { data: tasks, error: taskError } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("user_id", userId);
+    if (taskError) throw taskError;
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === "completed").length;
+
+    // 2️⃣ All leaves (no filtering by user or approval)
+    const { data: leaves, error: leaveError } = await supabase
+      .from("leaves")
+      .select("*"); // fetch everything
+    if (leaveError) throw leaveError;
+
+    console.log(`Fetched ${leaves.length} total leaves from DB`);
+
+    // 3️⃣ Daily Progress Status
+    const { data: progress, error: progressError } = await supabase
+      .from("daily_progress")
+      .select("date")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(1);
+    if (progressError) throw progressError;
+
+    let dailyProgressStatus = "No Update";
+    if (progress?.length) {
+      const lastDate = formatDate(progress[0].date);
+      dailyProgressStatus =
+        lastDate === today ? "submitted" : `Last submitted on ${lastDate}`;
+    }
+
+    // ✅ Response
+    res.json({
+      totalTasks,
+      completedTasks,
+      dailyProgressStatus,
+      leaves, // send all leaves; frontend filters by user and status
+    });
+
+  } catch (err) {
+    console.error("Error fetching employee overview:", err.message);
+    res.status(500).json({ error: "Server error fetching overview" });
+  }
+};
+///////////profile section
+// controllers/userController.js
