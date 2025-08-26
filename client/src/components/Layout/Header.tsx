@@ -23,19 +23,23 @@ interface User {
   id: string;
   name: string;
   role: string;
-  avatar?: string;
+  profile_photo?: string;
 }
 
 interface Notification {
   id: string;
+  sourceId: string;   // <--- add this
   userId: string;
   title: string;
   message: string;
-  type: 'success' | 'warning' | 'error' | 'info';
+  type: 'success' | 'warning' | 'error' | 'info' | 'leave'; // include 'leave' if your API sends it
   read: boolean;
   createdAt: string;
   actionUrl?: string;
+   date?: string;
+   createdBy?: string;
 }
+
 
 const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const navigate = useNavigate();
@@ -53,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
       if (!token) return;
 
       try {
-        const response = await axios.get('https://nts-erp-system-629k.vercel.app/api/user/profile', {
+        const response = await axios.get('http://localhost:8000/api/user/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUser(response.data);
@@ -64,57 +68,224 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
     fetchUser();
   }, []);
+useEffect(() => {
+  let intervalId: number; // ✅ use number in the browser
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      const token = localStorage.getItem('token');
-      if (!token || !user.role) return;
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !user.role) return;
 
-      try {
-        const role = getSimpleDesignation(user.role || 'employee');
-        const response = await axios.get(`http://localhost:8000/api/${role}/notifications`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setNotifications(response.data);
-      } catch (error) {
-        console.error('Error fetching notifications:', error);
-      }
+    try {
+      const response = await axios.get(
+        "http://localhost:8000/api/user/notifications",
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const notificationsFromServer = response.data.notifications || [];
+      setNotifications(notificationsFromServer);
+    } catch (error) {
+      console.error("❌ Error fetching notifications:", error);
+    }
+  };
+
+  // Initial fetch
+  if (user.role) fetchNotifications();
+
+  // Poll every 5 seconds
+  intervalId = window.setInterval(() => {
+    if (user.role) fetchNotifications();
+  }, 5000);
+
+  // Cleanup on unmount
+  return () => clearInterval(intervalId);
+}, [user.role]);
+
+
+
+
+
+
+
+
+
+// Helper function to get notification title based on type and message
+const getNotificationTitle = (type: string, message: string) => {
+  switch (type) {
+    case 'leave':
+      if (message.includes('approved')) return 'Leave Request Approved';
+      if (message.includes('rejected')) return 'Leave Request Rejected';
+      if (message.includes('pending')) return 'New Leave Request';
+      return 'Leave Update';
+    case 'task':
+      return 'Task Update';
+    case 'report':
+      if (message.includes('approved')) return 'Report Approved';
+      if (message.includes('rejected')) return 'Report Rejected';
+      if (message.includes('pending')) return 'New Report Submitted';
+      return 'Report Update';
+    case 'project':
+      if (message.includes('assigned')) return 'New Project Assigned';
+      if (message.includes('approved')) return 'Project Approved';
+      if (message.includes('pending')) return 'Project Pending Review';
+      return 'Project Update';
+    default:
+      return 'Notification';
+  }
+};
+
+// Helper function to map notification types to UI types
+const mapNotificationType = (type: string) => {
+  switch (type) {
+    case 'leave':
+    case 'task':
+    case 'report':
+    case 'project':
+      return 'info';
+    default:
+      return 'info';
+  }
+};
+
+// Helper function to get action URL based on type and sourceId
+const getActionUrl = (type: string, sourceId: string) => {
+  switch (type) {
+    case 'leave':
+      return `/leaves/${sourceId}`;
+    case 'task':
+      return `/tasks/${sourceId}`;
+    case 'report':
+      return `/reports/${sourceId}`;
+    case 'project':
+      return `/projects/${sourceId}`;
+    default:
+      return undefined;
+  }
+};
+// --- Mark notification as read ---
+const markNotificationAsRead = async (notification: Notification) => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token || !user) return;
+
+    const notificationDate = notification.date || new Date().toISOString();
+
+    if (!notification.type || !notification.sourceId || !notification.createdBy) {
+      console.error("❌ Cannot mark as read, missing required fields:", notification);
+      return;
+    }
+
+    // --- Role normalization ---
+    const directorRoles = [
+      "director",
+      "director_hr",
+      "global_hr_director",
+      "global_operations_director",
+      "engineering_director",
+      "director_tech_team",
+      "director_business_development",
+    ];
+
+    const managerRoles = [
+      "talent_acquisition_manager",
+      "manager",
+      "project_tech_manager",
+      "quality_assurance_manager",
+      "software_development_manager",
+      "systems_integration_manager",
+      "client_relations_manager",
+    ];
+
+    let normalizedRole: "employee" | "manager" | "director" = "employee";
+    const userRoleLower = user.role.toLowerCase();
+
+    if (directorRoles.includes(userRoleLower)) normalizedRole = "director";
+    else if (managerRoles.includes(userRoleLower)) normalizedRole = "manager";
+
+    console.log("🛠 Normalized role for marking read:", normalizedRole);
+
+    // Determine correct action column based on normalized role
+    const actionColumn =
+      normalizedRole === "employee"
+        ? "employee_action"
+        : normalizedRole === "manager"
+        ? "manager_action"
+        : "director_action";
+
+    const payload = {
+      sourceId: notification.sourceId,
+      type: notification.type,
+      message: notification.message,
+      createdBy: notification.createdBy, // who originally triggered it
+      userId: user.id, // ✅ who is marking as read
+      role: normalizedRole, // ✅ normalized role of current user
+      actionColumn, // ✅ tells backend where to update
+      action: "read",
+      date: notificationDate,
     };
 
-    if (user.role) {
-      fetchNotifications();
+    console.log("📤 Marking notification as read (normalized role):", payload);
+
+    await axios.put(
+      "http://localhost:8000/api/user/notification/read",
+      payload,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Update local state immediately
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === notification.id
+          ? { ...n, read: true, action: "read", date: notificationDate }
+          : n
+      )
+    );
+  } catch (error) {
+    console.error("❌ Failed to mark as read:", error);
+  }
+};
+
+// Helper function to get original type from title
+const getOriginalType = (title: string) => {
+  if (title.includes('Leave')) return 'leave';
+  if (title.includes('Task')) return 'task';
+  if (title.includes('Report')) return 'report';
+  if (title.includes('Project')) return 'project';
+  return 'info';
+};
+
+
+const deleteNotification = async (notificationId: string) => {
+  try {
+    // Find the notification to get its details
+    const notification = notifications.find(n => n.id === notificationId);
+    if (!notification) {
+      console.error("❌ Notification not found");
+      return;
     }
-  }, [user.role]);
 
-  const markNotificationAsRead = async (notificationId: string) => {
-    try {
-      const role = getSimpleDesignation(user.role || 'employee');
-      await axios.patch(
-        `http://localhost:8000/api/${role}/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
+    const payload = {
+      type: notification.type === 'info' ? getOriginalType(notification.title) : notification.type,
+      message: notification.message,
+      sourceId: notification.sourceId,
+      date: notification.createdAt
+    };
 
-      setNotifications(prev =>
-        prev.map(n => (n.id === notificationId ? { ...n, read: true } : n))
-      );
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
-    }
-  };
+    console.log("📤 Delete request:", payload);
 
-  const deleteNotification = async (notificationId: string) => {
-    try {
-      const role = getSimpleDesignation(user.role || 'employee');
-      await axios.delete(`http://localhost:8000/api/${role}/notifications/${notificationId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+    const response = await axios.put(
+      `http://localhost:8000/api/user/notification/delete`,
+      payload,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+    );
 
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-    }
-  };
+    console.log("✅ Delete response:", response.data);
+
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  } catch (error) {
+    console.error('❌ Failed to delete notification:', error);
+  }
+};
+
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -153,10 +324,12 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   };
 
   const markAllAsRead = () => {
-    const updated = notifications.map(n =>
-      n.userId === user.id ? { ...n, read: true } : n
-    );
-    setNotifications(updated);
+    // Mark all unread notifications as read
+    const unreadNotifications = notifications.filter(n => !n.read);
+    
+    unreadNotifications.forEach(notification => {
+      markNotificationAsRead(notification);
+    });
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -228,14 +401,14 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                           className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer border-l-4 ${
                             !notification.read ? getNotificationColor(notification.type) : 'border-l-gray-300 bg-white'
                           }`}
-                          onClick={() => {
-                            markNotificationAsRead(notification.id);
-                            if (notification.actionUrl) {
-                              navigate(notification.actionUrl);
-                              setShowNotifications(false);
-                            }
-                          }}
-                        >
+                         onClick={() => {
+          if (!notification.read) markNotificationAsRead(notification); // mark read
+          if (notification.actionUrl) {
+            navigate(notification.actionUrl);
+            setShowNotifications(false);
+          }
+        }}
+      >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center space-x-2 mb-2">
@@ -286,24 +459,26 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                 </div>
               )}
             </div>
+            
 
             {/* Profile Menu */}
-            <div className="relative">
-              <button
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                 <img
-                src={user.avatar || 'https://via.placeholder.com/32'}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
-              />
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.role}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
-              </button>
+<div className="relative">
+  <button
+    onClick={() => setShowProfileMenu(!showProfileMenu)}
+    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+  >
+    <img
+      src={user?.profile_photo || 'https://via.placeholder.com/32'}
+      alt={user?.name || 'User'}
+      className="w-8 h-8 rounded-full object-cover"
+    />
+    <div className="text-left">
+      <p className="text-sm font-medium text-gray-900">{user?.name || "N/A"}</p>
+      <p className="text-xs text-gray-500">{user?.role || "N/A"}</p>
+    </div>
+    <ChevronDown className="w-4 h-4 text-gray-400" />
+  </button>
+
 
               {showProfileMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
