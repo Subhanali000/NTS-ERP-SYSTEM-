@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
       if (!token) return;
 
       try {
-        const response = await axios.get('http://localhost:8000/api/user/profile', {
+        const response = await axios.get('https://nts-erp-system-629k.vercel.app/api/user/profile', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setUser(response.data);
@@ -77,7 +77,7 @@ useEffect(() => {
 
     try {
       const response = await axios.get(
-        "http://localhost:8000/api/user/notifications",
+        "https://nts-erp-system-629k.vercel.app/api/user/notifications",
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -226,7 +226,7 @@ const markNotificationAsRead = async (notification: Notification) => {
     console.log("📤 Marking notification as read (normalized role):", payload);
 
     await axios.put(
-      "http://localhost:8000/api/user/notification/read",
+      "https://nts-erp-system-629k.vercel.app/api/user/notification/read",
       payload,
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -273,7 +273,7 @@ const deleteNotification = async (notificationId: string) => {
     console.log("📤 Delete request:", payload);
 
     const response = await axios.put(
-      `http://localhost:8000/api/user/notification/delete`,
+      `https://nts-erp-system-629k.vercel.app/api/user/notification/delete`,
       payload,
       { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
     );
