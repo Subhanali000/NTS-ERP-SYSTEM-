@@ -9,43 +9,85 @@ interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+type User = {
+  name: string;
+  email: string;
+  profile_photo: string;
+  employee_id: string;
+  department: string;
+  role: string;
+  joinDate?: string;
+  created_at?: string; // optional
+};
+
+
+
+
+type ProfileData = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  bio: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  linkedin_profile_link: string;
+  github_profile_link: string;
+  profile_photo: string;
+  employee_id: string;
+  manager_id?: string;   // optional if may not exist
+  director_id?: string;  // optional
+  role: string;
+  department: string;
+  join_date: string;
+  displayId?: string;
+   newPhotoFile?: File | null; // Add this line    // optional
+};
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   const user = getCurrentUser();
-  const [activeTab, setActiveTab] = useState<'profile' | 'settings' | 'security' | 'preferences'>('profile');
+  const [activeTab, setActiveTab] = useState<"profile" | "settings" | "security">("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+const departmentName = user?.department
+  ? user.department.replace("_", " ")
+  : "Unknown";
 
 
-   const departmentName = user.department ? user.department.replace('_', ' ') : 'Unknown';
-  const [profileData, setProfileData] = useState({
-    name: user.name,
-    email: user.email,
-    phone: '',
-    address: '',
-    bio: '',
-    emergencyContact: '',
-    emergencyPhone: '',
-    linkedin: '',
-    github: ''
-  });
+const [profileData, setProfileData] = useState<ProfileData>({
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  bio: "",
+  emergency_contact_name: "",
+  emergency_contact_phone: "",
+  linkedin_profile_link: "",
+  github_profile_link: "",
+  profile_photo: "",
+  employee_id: "",
+  role: "",
+  department: "",
+  join_date: "",
+});
+
 
   const [settingsData, setSettingsData] = useState({
     theme: 'light',
     language: 'en',
     timezone: 'America/New_York',
-    dateFormat: 'MM/dd/yyyy',
-    timeFormat: '12h',
-    emailNotifications: true,
-    pushNotifications: true,
-    weeklyReports: true,
-    taskReminders: true,
-    leaveAlerts: true,
-    projectUpdates: true,
-    autoSave: true,
-    compactView: false,
-    showAvatars: true,
-    animationsEnabled: true
+    date_format: 'MM/dd/yyyy',
+    compact_view: false,
+    show_avatars: true,
+    enable_animations: true,
+    auto_save: true,
+    email_notifications: true,
+    push_notifications: true,
+    weekly_reports: false,
+    task_reminders: true,
+    leave_alerts: true,
+    project_updates: true,
   });
 
   const [securityData, setSecurityData] = useState({
@@ -53,131 +95,302 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     newPassword: '',
     confirmPassword: '',
     twoFactorEnabled: false,
-    sessionTimeout: '30',
+    sessionTimeout: '60',
     loginAlerts: true,
-    deviceManagement: true
+    deviceManagement: true,
   });
-
-  useEffect(() => {
-    const fetchAll = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      try {
-        // Fetch profile
-        const profileRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!profileRes.ok) throw new Error('Failed to fetch profile');
-        const profile = await profileRes.json();
-        setCurrentUser(profile);
-        setProfileData(prev => ({
-          ...prev,
-          name: profile.name || '',
-          email: profile.email || '',
-          phone: profile.phone || '',
-          address: profile.address || '',
-          bio: profile.bio || '',
-          emergencyContact: profile.emergencyContact || '',
-          emergencyPhone: profile.emergencyPhone || '',
-          linkedin: profile.linkedin || '',
-          github: profile.github || ''
-        }));
-
-        // Fetch settings
-        const settingsRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/settings', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (settingsRes.ok) {
-          const settings = await settingsRes.json();
-          
-          setSettingsData(settings);
-        }
-
-
-        // Fetch security settings
-        const securityRes = await fetch('https://nts-erp-system-629k.vercel.app/api/user/security', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (securityRes.ok) {
-          const security = await securityRes.json();
-          setSecurityData(prev => ({
-            ...prev,
-            twoFactorEnabled: security.twoFactorEnabled,
-            sessionTimeout: security.sessionTimeout,
-            loginAlerts: security.loginAlerts,
-            deviceManagement: security.deviceManagement
-          }));
-        }
-
-      } catch (err) {
-        console.error('Error loading user data:', err);
-      }
-    };
-
-    if (isOpen) {
-      fetchAll();
-    }
-  }, [isOpen]);
-
-  const handleProfileSave = async () => {
-    setIsSaving(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileData),
-      });
-
-      if (!res.ok) throw new Error('Failed to update profile');
-      const updatedUser = await res.json();
-      setCurrentUser(updatedUser);
-      setIsEditing(false);
-      console.log('✅ Profile updated successfully');
-      console.log("Role Rendered:", user.role, "→", getRoleDisplayName(user.role));
-
-    } catch (err) {
-      console.error('❌ Error saving profile:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSettingsSave = async () => {
-    setIsSaving(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(settingsData),
-      });
-
-      if (!res.ok) throw new Error('Failed to update settings');
-
-      if (settingsData.theme === 'dark') {
+useEffect(() => {
+  const applyTheme = () => {
+    if (settingsData.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (settingsData.theme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (settingsData.theme === 'system') {
+      // follow OS preference
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-
-      console.log('✅ Settings updated successfully');
-    } catch (err) {
-      console.error('❌ Error saving settings:', err);
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const handleSecuritySave = async () => {
-    if (securityData.newPassword !== securityData.confirmPassword) {
+  applyTheme();
+
+  // optional: listen to system changes if theme is "system"
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleChange = () => {
+    if (settingsData.theme === 'system') applyTheme();
+  };
+  mediaQuery.addEventListener('change', handleChange);
+
+  return () => mediaQuery.removeEventListener('change', handleChange);
+}, [settingsData.theme]);
+
+useEffect(() => {
+  const fetchAll = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      // ===== 1️⃣ Fetch profile =====
+      const profileRes = await fetch("http://localhost:8000/api/user/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!profileRes.ok) throw new Error("Failed to fetch profile");
+
+      const profile = await profileRes.json();
+      console.log("📥 Raw Profile fetched:", profile);
+const displayId = profile.employee_id || profile.manager_id || profile.director_id || "N/A";
+      
+      // Update state
+      setCurrentUser(profile);
+     setProfileData({
+  name: profile.name || "",
+  email: profile.email || "",
+  phone: profile.phone || "",
+  address: profile.address || "",
+  bio: profile.bio || "",
+  emergency_contact_name: profile.emergency_contact_name || "",
+  emergency_contact_phone: profile.emergency_contact_phone || "",
+  linkedin_profile_link: profile.linkedin_profile_link || "",
+  github_profile_link: profile.github_profile_link || "",
+  profile_photo: profile.profile_photo || "",
+  employee_id: profile.employee_id || "",
+  manager_id: profile.manager_id || "",
+  director_id: profile.director_id || "",
+  role: profile.role || "",
+  department: profile.department || "",
+  join_date: profile.join_date
+    ? new Date(profile.join_date).toLocaleDateString()
+    : profile.created_at
+    ? new Date(profile.created_at).toLocaleDateString()
+    : "N/A",
+  displayId, // normalized ID for UI
+});
+
+      // ===== 2️⃣ Fetch settings =====
+      const settingsRes = await fetch("http://localhost:8000/api/user/settings", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        console.log("📥 Raw Settings fetched:", settings);
+        setSettingsData(settings);
+      }
+
+      // ===== 3️⃣ Fetch security settings =====
+      const securityRes = await fetch("http://localhost:8000/api/user/security", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (securityRes.ok) {
+        const security = await securityRes.json();
+        console.log("📥 Raw Security fetched:", security);
+        setSecurityData(prev => ({ ...prev, ...security }));
+      }
+    } catch (err) {
+      console.error("❌ Error loading user data:", err);
+    }
+  };
+
+  if (isOpen) fetchAll();
+}, [isOpen]);
+
+
+const handleProfileSave = async () => {
+  setIsSaving(true);
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No token found");
+
+    // 1️⃣ Prepare profile payload
+    let profilePayload: any = { ...profileData };
+
+    if (profileData.newPhotoFile) {
+      const file = profileData.newPhotoFile;
+
+      // ✅ Guard raw size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("⚠️ File is too large. Please upload an image under 5MB.");
+        setIsSaving(false);
+        return;
+      }
+
+      // ✅ Convert to base64
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+      });
+
+      // ✅ Double-check encoded size (~1.33x raw)
+      const base64Size = Math.ceil((base64.length * 3) / 4);
+      if (base64Size > 10 * 1024 * 1024) {
+        alert("⚠️ Encoded image is too large after conversion. Please use a smaller photo.");
+        setIsSaving(false);
+        return;
+      }
+
+      profilePayload.profile_photo = base64;
+    }
+
+    // 2️⃣ Normalize settings
+    const normalizedSettings = {
+      ...settingsData,
+      compact_view: Boolean(settingsData.compact_view),
+      show_avatars: Boolean(settingsData.show_avatars),
+      date_format: settingsData.date_format?.toUpperCase() || "MM/DD/YYYY",
+      enable_animations: Boolean(settingsData.enable_animations),
+      auto_save: Boolean(settingsData.auto_save),
+      email_notifications: Boolean(settingsData.email_notifications),
+      push_notifications: Boolean(settingsData.push_notifications),
+      weekly_reports: Boolean(settingsData.weekly_reports),
+      task_reminders: Boolean(settingsData.task_reminders),
+      leave_alerts: Boolean(settingsData.leave_alerts),
+      project_updates: Boolean(settingsData.project_updates),
+      user_id: user?.id || null,
+    };
+
+    const payloadToSend = { ...profilePayload, ...normalizedSettings };
+
+    // 3️⃣ Send PUT request
+    const res = await fetch("http://localhost:8000/api/user/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payloadToSend),
+    });
+
+    const contentType = res.headers.get("content-type");
+
+    let result: any;
+    if (contentType && contentType.includes("application/json")) {
+      result = await res.json();
+    } else {
+      const text = await res.text();
+      console.error("❌ Backend returned non-JSON response:", text);
+      throw new Error(`Unexpected non-JSON response (status ${res.status}): ${text.substring(0, 200)}...`);
+    }
+
+    if (!res.ok) {
+      throw new Error(result.error || result.message || "❌ Failed to update profile/settings");
+    }
+
+    setCurrentUser(result.data);
+
+    setProfileData(prev => ({
+      ...prev,
+      profile_photo: payloadToSend.profile_photo || prev.profile_photo,
+      newPhotoFile: undefined,
+    }));
+
+    console.log("✅ Profile, photo, and settings updated successfully");
+    alert(result.message || "Profile updated successfully ✅");
+    setIsEditing(false);
+
+  } catch (err: any) {
+    console.error("❌ Error saving profile/settings:", err);
+
+    if (err.message.includes("413") || err.message.includes("Payload Too Large")) {
+      alert("⚠️ Upload failed: The image is too large. Please select a smaller file (max 5MB).");
+    } else {
+      alert(err.message || "❌ Failed to save profile. Please try again.");
+    }
+  } finally {
+    setIsSaving(false);
+  }
+};
+
+
+
+const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Validate type
+  if (!file.type.startsWith("image/")) {
+    alert("⚠️ Please select a valid image file");
+    setProfileData(prev => ({ ...prev, newPhotoFile: undefined }));
+    setPreviewPhoto(null); // remove preview
+    return;
+  }
+
+  // Validate size
+  if (file.size > 5 * 1024 * 1024) {
+    alert("⚠️ File size must be less than 5MB. Please select again.");
+    setProfileData(prev => ({ ...prev, newPhotoFile: undefined }));
+    setPreviewPhoto(null); // remove preview
+    return;
+  }
+
+  // ✅ Only set preview and file if valid
+  setProfileData(prev => ({ ...prev, newPhotoFile: file }));
+  setPreviewPhoto(URL.createObjectURL(file));
+};
+
+
+
+
+
+  const handleSettingsSave = async () => {
+  setIsSaving(true);
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("No token found");
+
+    // ✅ Ensure date_format matches database constraint
+    const allowedDateFormats = ['MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'];
+    let normalizedDateFormat = settingsData.date_format?.toUpperCase() || 'MM/DD/YYYY';
+    if (!allowedDateFormats.includes(normalizedDateFormat)) {
+      normalizedDateFormat = 'MM/DD/YYYY'; // fallback default
+    }
+
+    const normalizedSettings = {
+      ...settingsData,
+      compact_view: Boolean(settingsData.compact_view),
+      show_avatars: Boolean(settingsData.show_avatars),
+      enable_animations: Boolean(settingsData.enable_animations),
+      auto_save: Boolean(settingsData.auto_save),
+      email_notifications: Boolean(settingsData.email_notifications),
+      push_notifications: Boolean(settingsData.push_notifications),
+      weekly_reports: Boolean(settingsData.weekly_reports),
+      task_reminders: Boolean(settingsData.task_reminders),
+      leave_alerts: Boolean(settingsData.leave_alerts),
+      project_updates: Boolean(settingsData.project_updates),
+      date_format: normalizedDateFormat, // ✅ normalized
+      user_id: user?.id || null,
+    };
+
+    const res = await fetch("http://localhost:8000/api/user/settings", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(normalizedSettings),
+    });
+
+    if (!res.ok) throw new Error("Failed to update settings");
+    console.log("✅ Settings updated successfully");
+  } catch (err) {
+    console.error("❌ Error saving settings:", err);
+    alert('Failed to save settings. Please try again.');
+  } finally {
+    setIsSaving(false);
+  }
+};
+
+
+  const handleSecuritySave = async (updatedData?: Partial<typeof securityData>) => {
+    const dataToSave = updatedData ? { ...securityData, ...updatedData } : securityData;
+
+    if (
+      dataToSave.newPassword &&
+      dataToSave.newPassword !== dataToSave.confirmPassword
+    ) {
       alert('Passwords do not match');
       return;
     }
@@ -185,27 +398,29 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('https://nts-erp-system-629k.vercel.app/api/user/security', {
+      const res = await fetch('http://localhost:8000/api/user/security', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(securityData),
+        body: JSON.stringify(dataToSave),
       });
 
       if (!res.ok) throw new Error('Failed to update security settings');
 
-      setSecurityData(prev => ({
+      setSecurityData((prev) => ({
         ...prev,
+        ...(updatedData || {}),
         currentPassword: '',
         newPassword: '',
-        confirmPassword: ''
+        confirmPassword: '',
       }));
 
       console.log('✅ Security settings updated');
     } catch (err) {
       console.error('❌ Error saving security settings:', err);
+      alert('Failed to update security settings. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -214,51 +429,63 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const ProfileTab = () => (
-    <div className="space-y-8">
-      {/* Profile Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-        <div className="flex items-center space-x-6">
-          <div className="relative">
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-24 h-24 rounded-full object-cover ring-4 ring-white shadow-lg"
-            />
-            <button className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg">
-              <Camera className="w-4 h-4" />
-            </button>
-          </div>
+  <div className="space-y-8">
+    {/* Profile Header */}
+    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
+      <div className="flex items-center space-x-6">
+        <div className="relative">
+           {(previewPhoto || profileData.profile_photo) && (
+  <img
+    src={previewPhoto || profileData.profile_photo}
+    alt={profileData.name}
+    className="w-24 h-24 rounded-full object-cover ring-4 ring-white shadow-lg"
+  />
+)}
+
+
+  <label className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-lg cursor-pointer">
+    <Camera className="w-4 h-4" />
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handlePhotoSelect}
+      className="hidden"
+    />
+  </label>
+</div>
           <div className="flex-1">
-            <h3 className="text-2xl font-bold text-gray-900">{user.name}</h3>
-            <p className="text-lg text-gray-600">
-  {getRoleDisplayName(user.role)}
-</p>
+  <h3 className="text-2xl font-bold text-gray-900">{user?.name || "Unknown"}</h3>
+  <p className="text-lg text-gray-600">{getRoleDisplayName(user?.role || "")}</p>
+  <p className="text-sm text-gray-500 capitalize">
+    {departmentName || "Unknown"} Department
+  </p>
+  <div className="mt-3 flex items-center space-x-4">
+    <div className="flex items-center space-x-1 text-sm text-gray-600">
+      <Calendar className="w-4 h-4" />
+      <span>
+  Joined{" "}
+  {user?.joinDate
+    ? new Date(user.joinDate).toLocaleDateString()
+    : user?.created_at
+    ? new Date(user.created_at).toLocaleDateString()
+    : "N/A"}
+</span>
 
-            <p className="text-sm text-gray-500 capitalize">
-  {departmentName} Department
-</p>
+    </div>
+  </div>
+</div>
 
-            <div className="mt-3 flex items-center space-x-4">
-              <div className="flex items-center space-x-1 text-sm text-gray-600">
-                <Calendar className="w-4 h-4" />
-                <span>Joined {new Date(user.joinDate).toLocaleDateString()}</span>
-              </div>
-              <div className="flex items-center space-x-1 text-sm text-gray-600">
-                <Briefcase className="w-4 h-4" />
-                <span>{user.leaveBalance} days leave balance</span>
-              </div>
-            </div>
-          </div>
+
           <button
             onClick={() => setIsEditing(!isEditing)}
             className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
-              isEditing 
-                ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+              isEditing
+                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-blue-600 text-white hover:bg-blue-700"
             }`}
           >
             <Edit3 className="w-4 h-4" />
-            <span>{isEditing ? 'Cancel' : 'Edit Profile'}</span>
+            <span>{isEditing ? "Cancel" : "Edit Profile"}</span>
           </button>
         </div>
       </div>
@@ -372,8 +599,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
               <input
                 type="text"
-                value={profileData.emergencyContact}
-                onChange={(e) => setProfileData(prev => ({ ...prev, emergencyContact: e.target.value }))}
+                value={profileData.emergency_contact_name}
+                onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact_name: e.target.value }))}
                 disabled={!isEditing}
                 className={`w-full border rounded-lg px-3 py-2 transition-colors ${
                   isEditing 
@@ -387,8 +614,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
               <input
                 type="tel"
-                value={profileData.emergencyPhone}
-                onChange={(e) => setProfileData(prev => ({ ...prev, emergencyPhone: e.target.value }))}
+                value={profileData.emergency_contact_phone}
+                onChange={(e) => setProfileData(prev => ({ ...prev, emergency_contact_phone: e.target.value }))}
                 disabled={!isEditing}
                 className={`w-full border rounded-lg px-3 py-2 transition-colors ${
                   isEditing 
@@ -409,8 +636,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
               <input
                 type="url"
-                value={profileData.linkedin}
-                onChange={(e) => setProfileData(prev => ({ ...prev, linkedin: e.target.value }))}
+                value={profileData.linkedin_profile_link}
+                onChange={(e) => setProfileData(prev => ({ ...prev, linkedin_profile_link: e.target.value }))}
                 disabled={!isEditing}
                 className={`w-full border rounded-lg px-3 py-2 transition-colors ${
                   isEditing 
@@ -425,8 +652,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <label className="block text-sm font-medium text-gray-700 mb-2">GitHub Profile</label>
               <input
                 type="url"
-                value={profileData.github}
-                onChange={(e) => setProfileData(prev => ({ ...prev, github: e.target.value }))}
+                value={profileData.github_profile_link}
+                onChange={(e) => setProfileData(prev => ({ ...prev, github_profile_link: e.target.value }))}
                 disabled={!isEditing}
                 className={`w-full border rounded-lg px-3 py-2 transition-colors ${
                   isEditing 
@@ -438,7 +665,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          {/* Employment Details (Read-only) */}
+          {/* Employment Details */}
           <h4 className="text-lg font-semibold text-gray-900 flex items-center space-x-2 mt-8">
             <Briefcase className="w-5 h-5 text-purple-600" />
             <span>Employment Details</span>
@@ -447,20 +674,34 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           <div className="bg-gray-50 rounded-lg p-4 space-y-3">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-gray-600">Employee ID:</span>
-                <span className="ml-2 font-medium text-gray-900">{user.id.toUpperCase()}</span>
-              </div>
+  <span className="text-gray-600">ID:</span>
+  <span className="ml-2 font-medium text-gray-900">
+    {profileData.displayId ? profileData.displayId.toUpperCase() : "N/A"}
+  </span>
+</div>
+
+
               <div>
                 <span className="text-gray-600">Department:</span>
-                <span className="ml-2 font-medium text-gray-900 capitalize">{user.department.replace('_', ' ')}</span>
+                <span className="ml-2 font-medium text-gray-900 capitalize">
+                  {user?.department ? user.department.replace("_", " ") : "N/A"}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Role:</span>
-                <span className="ml-2 font-medium text-gray-900">{getRoleDisplayName(user.role)}</span>
+                <span className="ml-2 font-medium text-gray-900">
+                  {user?.role ? getRoleDisplayName(user.role) : "N/A"}
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Join Date:</span>
-                <span className="ml-2 font-medium text-gray-900">{new Date(user.joinDate).toLocaleDateString()}</span>
+                <span className="ml-2 font-medium text-gray-900">
+                  {user?.joinDate
+                    ? new Date(user.joinDate).toLocaleDateString()
+                    : user?.created_at
+                    ? new Date(user.created_at).toLocaleDateString()
+                    : "N/A"}
+                </span>
               </div>
             </div>
           </div>
@@ -503,7 +744,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
   );
 
   const SettingsTab = () => (
-    <div className="space-y-8">
+   <div className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 p-6 rounded-lg">
+  
+   <div className="space-y-8">
+      
       {/* Appearance Settings */}
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
@@ -522,13 +766,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               ].map(({ value, label, icon: Icon }) => (
                 <label key={value} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                   <input
-                    type="radio"
-                    name="theme"
-                    value={value}
-                    checked={settingsData.theme === value}
-                    onChange={(e) => setSettingsData(prev => ({ ...prev, theme: e.target.value }))}
-                    className="text-blue-600 focus:ring-blue-500"
-                  />
+  type="radio"
+  name="theme"
+  value={value}
+  checked={settingsData.theme === value}
+  onChange={(e) => setSettingsData(prev => ({ ...prev, theme: e.target.value }))}
+/>
+
+
                   <Icon className="w-5 h-5 text-gray-600" />
                   <span className="font-medium text-gray-900">{label}</span>
                 </label>
@@ -571,8 +816,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-3">Date Format</label>
             <select
-              value={settingsData.dateFormat}
-              onChange={(e) => setSettingsData(prev => ({ ...prev, dateFormat: e.target.value }))}
+              value={settingsData.date_format}
+              onChange={(e) => setSettingsData(prev => ({ ...prev, date_format: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="MM/dd/yyyy">MM/DD/YYYY</option>
@@ -588,10 +833,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           <h5 className="text-md font-medium text-gray-900 mb-4">Interface Preferences</h5>
           <div className="space-y-4">
             {[
-              { key: 'compactView', label: 'Compact View', description: 'Use a more condensed layout' },
-              { key: 'showAvatars', label: 'Show Avatars', description: 'Display user profile pictures' },
-              { key: 'animationsEnabled', label: 'Enable Animations', description: 'Use smooth transitions and animations' },
-              { key: 'autoSave', label: 'Auto-save', description: 'Automatically save changes as you type' }
+              { key: 'compact_view', label: 'Compact View', description: 'Use a more condensed layout' },
+              { key: 'show_avatars', label: 'Show Avatars', description: 'Display user profile pictures' },
+              { key: 'enable_animations', label: 'Enable Animations', description: 'Use smooth transitions and animations' },
+              { key: 'auto_save', label: 'Auto-save', description: 'Automatically save changes as you type' }
             ].map(({ key, label, description }) => (
               <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
@@ -622,12 +867,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
 
         <div className="space-y-4">
           {[
-            { key: 'emailNotifications', label: 'Email Notifications', description: 'Receive notifications via email' },
-            { key: 'pushNotifications', label: 'Push Notifications', description: 'Receive browser push notifications' },
-            { key: 'weeklyReports', label: 'Weekly Reports', description: 'Get weekly progress summaries' },
-            { key: 'taskReminders', label: 'Task Reminders', description: 'Reminders for upcoming deadlines' },
-            { key: 'leaveAlerts', label: 'Leave Alerts', description: 'Notifications for leave requests and approvals' },
-            { key: 'projectUpdates', label: 'Project Updates', description: 'Updates on project progress and changes' }
+            { key: 'email_notifications', label: 'Email Notifications', description: 'Receive notifications via email' },
+            { key: 'push_notifications', label: 'Push Notifications', description: 'Receive browser push notifications' },
+            { key: 'weekly_reports', label: 'Weekly Reports', description: 'Get weekly progress summaries' },
+            { key: 'task_reminders', label: 'Task Reminders', description: 'Reminders for upcoming deadlines' },
+            { key: 'leave_alerts', label: 'Leave Alerts', description: 'Notifications for leave requests and approvals' },
+            { key: 'project_updates', label: 'Project Updates', description: 'Updates on project progress and changes' }
           ].map(({ key, label, description }) => (
             <div key={key} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
               <div>
@@ -672,6 +917,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           )}
         </button>
       </div>
+    </div>
     </div>
   );
 
@@ -719,7 +965,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           <button
-            onClick={handleSecuritySave}
+            onClick={() => handleSecuritySave()}
             disabled={isSaving || !securityData.currentPassword || !securityData.newPassword}
             className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 ${
               isSaving || !securityData.currentPassword || !securityData.newPassword
@@ -760,7 +1006,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               <input
                 type="checkbox"
                 checked={securityData.twoFactorEnabled}
-                onChange={(e) => setSecurityData(prev => ({ ...prev, twoFactorEnabled: e.target.checked }))}
+                onChange={(e) => {
+                  const newValue = e.target.checked;
+                  setSecurityData((prev) => ({ ...prev, twoFactorEnabled: newValue }));
+                  handleSecuritySave({ twoFactorEnabled: newValue });
+                }}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -799,7 +1049,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
                   <input
                     type="checkbox"
                     checked={securityData[key as keyof typeof securityData] as boolean}
-                    onChange={(e) => setSecurityData(prev => ({ ...prev, [key]: e.target.checked }))}
+                    onChange={(e) => {
+                      const newValue = e.target.checked;
+                      setSecurityData((prev) => ({ ...prev, [key]: newValue }));
+                      handleSecuritySave({ [key]: newValue });
+                    }}
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -837,94 +1091,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
     </div>
   );
 
-  const PreferencesTab = () => (
-    <div className="space-y-8">
-      {/* Dashboard Preferences */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-          <Monitor className="w-5 h-5 text-blue-600" />
-          <span>Dashboard Preferences</span>
-        </h4>
-
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">Default Dashboard View</label>
-            <select className="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="overview">Overview</option>
-              <option value="tasks">Tasks</option>
-              <option value="calendar">Calendar</option>
-              <option value="analytics">Analytics</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">Items per Page</label>
-            <select className="w-full max-w-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option value="10">10 items</option>
-              <option value="25">25 items</option>
-              <option value="50">50 items</option>
-              <option value="100">100 items</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">Quick Actions</label>
-            <div className="space-y-2">
-              {[
-                'Create Task',
-                'Submit Progress',
-                'Request Leave',
-                'View Calendar',
-                'Generate Report'
-              ].map((action) => (
-                <label key={action} className="flex items-center space-x-3">
-                  <input
-                    type="checkbox"
-                    defaultChecked={true}
-                    className="text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <span className="text-gray-900">{action}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Privacy Settings */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-6 flex items-center space-x-2">
-          <Shield className="w-5 h-5 text-purple-600" />
-          <span>Privacy Settings</span>
-        </h4>
-
-        <div className="space-y-4">
-          {[
-            { label: 'Show Online Status', description: 'Let others see when you\'re online' },
-            { label: 'Show Profile to Team', description: 'Allow team members to view your profile' },
-            { label: 'Show Activity Status', description: 'Display your current activity status' },
-            { label: 'Allow Direct Messages', description: 'Receive direct messages from colleagues' }
-          ].map(({ label, description }) => (
-            <div key={label} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">{label}</p>
-                <p className="text-sm text-gray-600">{description}</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked={true}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden">
@@ -951,8 +1117,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
               {[
                 { id: 'profile', label: 'Profile', icon: User },
                 { id: 'settings', label: 'Settings', icon: Monitor },
-                { id: 'security', label: 'Security', icon: Shield },
-                { id: 'preferences', label: 'Preferences', icon: Palette }
+                { id: 'security', label: 'Security', icon: Shield }
               ].map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
@@ -975,7 +1140,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
             {activeTab === 'profile' && <ProfileTab />}
             {activeTab === 'settings' && <SettingsTab />}
             {activeTab === 'security' && <SecurityTab />}
-            {activeTab === 'preferences' && <PreferencesTab />}
           </div>
         </div>
       </div>
