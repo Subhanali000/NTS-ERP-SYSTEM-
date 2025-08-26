@@ -45,7 +45,7 @@ const DirectorDashboard: React.FC = () => {
         if (!token) throw new Error('No authentication token found');
 
         // Fetch users
-        const usersResponse = await fetch(`http://localhost:8000/api/director/employees`, {
+        const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!usersResponse.ok) throw new Error(await usersResponse.text());
@@ -54,7 +54,7 @@ const DirectorDashboard: React.FC = () => {
         setEnhancedUsers(usersData);
 
         // Fetch managers
-        const managersResponse = await fetch(`http://localhost:8000/api/director/managers`, {
+        const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!managersResponse.ok) throw new Error(await managersResponse.text());
@@ -62,7 +62,7 @@ const DirectorDashboard: React.FC = () => {
         setManagers(managersData);
 
         // Fetch tasks
-      const tasksResponse = await fetch(`http://localhost:8000/api/director/tasks`, {
+      const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
 });
 
@@ -76,7 +76,7 @@ setTasks(tasksData.tasks || []); // fallback if undefined
 
 
         // Fetch progress reports
-        const progressResponse = await fetch(`http://localhost:8000/api/director/progress-report`, {
+        const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!progressResponse.ok) throw new Error(await progressResponse.text());
@@ -84,7 +84,7 @@ setTasks(tasksData.tasks || []); // fallback if undefined
         setProgressReports(progressData);
 
         // Fetch projects
-        const projectsResponse = await fetch(`http://localhost:8000/api/director/active-projects`, {
+        const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
@@ -93,7 +93,7 @@ setTasks(tasksData.tasks || []); // fallback if undefined
         setProjects(projectsData.active_projects || []);
 
         // Fetch attendance
-        const attendanceResponse = await fetch(`http://localhost:8000/api/director/attendance`, {
+        const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
