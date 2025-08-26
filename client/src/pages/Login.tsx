@@ -16,6 +16,15 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
 
   const isFormValid = email.trim() && password.trim();
+ // Helper to clear invalid token
+  const handleInvalidToken = () => {
+    alert('⚠️ Session expired or invalid. Please login again.');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userRoleLabel');
+    navigate('/login');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +56,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         },
       });
 
-      if (!profileResponse.ok) {
+     if (!profileResponse.ok) {
+        if (profileResponse.status === 401) {
+          handleInvalidToken();
+          return;
+        }
         throw new Error('Failed to fetch user profile.');
       }
 
