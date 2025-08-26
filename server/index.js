@@ -56,36 +56,98 @@ app.use('/api', authRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/manager', managerRoutes);
 app.use('/api/director', directorRoutes);
+// Define roles at the top of your index.js (or import from a separate file)
+const managerRoles = [
+  'talent_acquisition_manager',
+  'manager',
+  'project_tech_manager',
+  'quality_assurance_manager',
+  'software_development_manager',
+  'systems_integration_manager',
+  'client_relations_manager',
+];
 
-// Profile Route
+const directorRoles = [
+  'director',
+  'director_hr',
+  'global_hr_director',
+  'global_operations_director',
+  'engineering_director',
+  'director_tech_team',
+  'director_business_development',
+];
+
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  const { id: userId, role: userRole } = req.user;
+
+  const allowedFields = [
+    'name',
+    'email',
+    'phone',
+    'address',
+    'bio',
+    'emergency_contact_name',
+    'emergency_contact_phone',
+    'linkedin_profile_link',
+    'github_profile_link',
+    'profile_photo'
+  ];
+
+  const updates = {};
+  for (const key of allowedFields) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No valid fields provided for update' });
+  }
+
+  let table;
+  if (userRole === 'employee' || userRole === 'intern') table = 'employees';
+  else if (managerRoles.includes(userRole)) table = 'managers';
+  else if (directorRoles.includes(userRole)) table = 'directors';
+  else return res.status(400).json({ error: 'Invalid user role' });
+
+  const { data, error } = await supabase
+    .from(table)
+    .update(updates)
+    .eq('id', userId)
+    .select();
+
+  if (error || !data || data.length === 0) {
+    return res.status(400).json({ error: error?.message || 'No row updated' });
+  }
+
+  res.json({ message: 'Profile updated successfully', data: data[0] });
+});
+
+
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
   const { id: userId, role: userRole } = req.user;
 
-  let table = userRole === 'employee' ? 'employees'
-            : userRole === 'manager' ? 'managers'
-            : userRole === 'director' ? 'directors'
-            : null;
+  let table = null;
+  if (['employee', 'intern', 'team_lead'].includes(userRole)) table = 'employees';
+  else if (managerRoles.includes(userRole)) table = 'managers';
+  else if (directorRoles.includes(userRole)) table = 'directors';
 
   if (!table) return res.status(400).json({ error: 'Invalid user role' });
 
-  const { data: userData, error } = await supabase
-    .from(table)
-    .select('*')
-    .eq('id', userId)
-    .single();
+  try {
+    const { data: userData, error } = await supabase
+      .from(table)
+      .select('*') // fetch all columns
+      .eq('id', userId)
+      .single();
 
-  if (error || !userData) {
-    return res.status(404).json({ error: 'User not found' });
+    if (error || !userData) return res.status(404).json({ error: 'User not found' });
+
+    res.json(userData);
+  } catch (err) {
+    console.error('❌ Error fetching user profile:', err);
+    res.status(500).json({ error: 'Failed to fetch profile' });
   }
-
-  res.json({
-    id: userId,
-    name: userData.name,
-    role: userData.role,
-    department: userData.department,
-    joinDate: userData.join_date,
-  });
 });
+
 
 // Generate Document Route
 app.post('/api/documents/generate', authenticateToken, async (req, res) => {
