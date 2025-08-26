@@ -45,15 +45,16 @@ const DirectorDashboard: React.FC = () => {
         if (!token) throw new Error('No authentication token found');
 
         // Fetch users
-        const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
+        const usersResponse = await fetch(`http://localhost:8000/api/director/employees`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!usersResponse.ok) throw new Error(await usersResponse.text());
         const usersData = await usersResponse.json();
+        
         setEnhancedUsers(usersData);
 
         // Fetch managers
-        const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
+        const managersResponse = await fetch(`http://localhost:8000/api/director/managers`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!managersResponse.ok) throw new Error(await managersResponse.text());
@@ -61,20 +62,21 @@ const DirectorDashboard: React.FC = () => {
         setManagers(managersData);
 
         // Fetch tasks
-      const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
+      const tasksResponse = await fetch(`http://localhost:8000/api/director/tasks`, {
   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
 });
 
 if (!tasksResponse.ok) throw new Error(await tasksResponse.text());
 
 const tasksData = await tasksResponse.json();
+console.log("tasksData from API:", tasksData);
 
-// If the API returns { tasks: [...] }
-setTasks(tasksData.tasks); // <-- make sure this is an array
+setTasks(tasksData.tasks || []); // fallback if undefined
+
 
 
         // Fetch progress reports
-        const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
+        const progressResponse = await fetch(`http://localhost:8000/api/director/progress-report`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!progressResponse.ok) throw new Error(await progressResponse.text());
@@ -82,19 +84,21 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
         setProgressReports(progressData);
 
         // Fetch projects
-        const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
+        const projectsResponse = await fetch(`http://localhost:8000/api/director/active-projects`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
         const projectsData = await projectsResponse.json();
+        console.log("project data",projectsData)
         setProjects(projectsData.active_projects || []);
 
         // Fetch attendance
-        const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
+        const attendanceResponse = await fetch(`http://localhost:8000/api/director/attendance`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
         if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
         const attendanceData = await attendanceResponse.json();
+        console.log('attendance',attendanceData)
         setAttendance(attendanceData);
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error.message);
@@ -115,68 +119,157 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
     // TODO: Send to backend
   };
 
-  const getDepartmentMetrics = (dept: string) => {
-    const deptUsers = enhancedUsers.filter(u => u.department === dept);
-    const deptTasks = tasks.filter(t => deptUsers.some(user => user.id === t.user_id));
-    const completedTasks = deptTasks.filter(t => t.status === 'completed').length;
-    const avgProgress = deptTasks.length > 0 
-      ? Math.round(deptTasks.reduce((sum, task) => sum + (task.progressPct || 0), 0) / deptTasks.length)
-      : 0;
+const getDepartmentMetrics = (dept: string) => {
+  // Get all users in this department
+  const deptUsers = enhancedUsers.filter(u => u.department === dept);
 
-    return {
-      totalEmployees: deptUsers.length,
-      completedTasks,
-      totalTasks: deptTasks.length,
-      avgProgress,
-      activeProjects: projects.filter(p => deptUsers.some(u => u.id === p.managerId)).length
-    };
+  // Get all tasks assigned to these users
+  const deptTasks = tasks.filter(t => deptUsers.some(user => user.id === t.user_id));
+
+  // Count completed tasks
+  const completedTasks = deptTasks.filter(t => t.status === 'completed').length;
+
+  // Calculate average progress across tasks
+  const avgProgress = deptTasks.length > 0
+    ? Math.round(
+        deptTasks.reduce((sum, task) => sum + (task.progress_percent || 0), 0) / deptTasks.length
+      )
+    : 0;
+
+  // Count active projects where a department user is a manager
+  const activeProjects = projects.filter(p =>
+    deptUsers.some(u => u.id === p.manager_id)
+  ).length;
+
+  return {
+    totalEmployees: deptUsers.length,
+    totalTasks: deptTasks.length,
+    completedTasks,
+    avgProgress,
+    activeProjects
   };
+};
+
 
   const getTeamMetrics = (teamId: string) => {
-    const team = managers.find(m => m.id === teamId);
-    if (!team) return null;
+  const team = managers.find(m => m.id === teamId);
+  if (!team) return null;
 
-    const teamMembers = enhancedUsers.filter(u => u.managerId === team.id);
-    const teamTasks = tasks.filter(t => teamMembers.some(member => member.id === t.user_id));
-    const completedTasks = teamTasks.filter(t => t.status === 'completed').length;
-    const avgProgress = teamTasks.length > 0 
-      ? Math.round(teamTasks.reduce((sum, task) => sum + (task.progressPct || 0), 0) / teamTasks.length)
-      : 0;
+  // ✅ Use manager_id (backend field) instead of managerId
+  const teamMembers = enhancedUsers.filter(u => u.manager_id === team.id);
 
-    return {
-      id: team.id,
-      name: team.name || `Team ${team.id}`,
-      managerId: team.id,
-      department: team.department || 'N/A',
-      members: teamMembers.length,
-      manager: team.name,
-      totalTasks: teamTasks.length,
-      completedTasks,
-      avgProgress,
-      efficiency: avgProgress > 0 ? avgProgress : 0,
-      productivity: avgProgress > 0 ? avgProgress : 0,
-      collaboration: avgProgress > 0 ? avgProgress : 0,
-      innovation: avgProgress > 0 ? avgProgress : 0
-    };
+  const teamTasks = tasks.filter(t =>
+    teamMembers.some(member => member.id === t.user_id)
+  );
+
+  const completedTasks = teamTasks.filter(t => t.status === 'completed').length;
+
+  const avgProgress = teamTasks.length > 0 
+    ? Math.round(
+        teamTasks.reduce((sum, task) => sum + (task.progress_percent || 0), 0) / teamTasks.length
+      )
+    : 0;
+
+  return {
+    id: team.id,
+    name: team.name || `Team ${team.id}`,
+    managerId: team.id,
+    department: team.department || 'N/A',
+    members: teamMembers.length,
+    manager: team.name,
+    totalTasks: teamTasks.length,
+    completedTasks,
+    avgProgress,
+    efficiency: avgProgress,
+    productivity: avgProgress,
+    collaboration: avgProgress,
+    innovation: avgProgress,
   };
+};
 
-  const getEmployeeMetrics = (empId: string) => {
-    const empTasks = tasks.filter(t => t.user_id === empId);
-    const completedTasks = empTasks.filter(t => t.status === 'completed').length;
-    const avgProgress = empTasks.length > 0 
-      ? Math.round(empTasks.reduce((sum, task) => sum + (task.progressPct || 0), 0) / empTasks.length)
-      : 0;
+const getEmployeeAttendancePct = (empId: string) => {
+  const empRecords = attendance.filter(a => a.user_id === empId);
+  if (empRecords.length === 0) return 0;
 
+  let totalMinutesWorked = 0;
+  let totalDays = 0; // total working days in records
+
+  empRecords.forEach(record => {
+    totalDays++;
+
+    if (!record.punch_in || !record.punch_out) return;
+
+    const [inHours, inMinutes] = record.punch_in.split(':').map(Number);
+    const [outHours, outMinutes] = record.punch_out.split(':').map(Number);
+
+    let minutesWorked = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
+
+    // Cap at 480 minutes per day
+    if (minutesWorked > 480) minutesWorked = 480;
+    if (minutesWorked < 0) minutesWorked = 0;
+
+    totalMinutesWorked += minutesWorked;
+  });
+
+  const totalExpectedMinutes = totalDays * 480; // 8 hours per recorded day
+  const attendancePct = totalExpectedMinutes > 0
+    ? Math.round((totalMinutesWorked / totalExpectedMinutes) * 100)
+    : 0;
+
+  console.log(`Employee ID: ${empId} | Days Recorded: ${totalDays} | Total Minutes Worked: ${totalMinutesWorked} | Attendance %: ${attendancePct}`);
+
+  return attendancePct;
+};
+
+
+
+const getManagerById = (managerId: string) => {
+  return managers.find(m => m.id === managerId) || { name: 'N/A' };
+};
+const getEmployeeMetrics = (empId: string) => {
+  const employee = enhancedUsers.find(u => u.id === empId);
+  if (!employee) {
     return {
-      totalTasks: empTasks.length,
-      completedTasks,
-      avgProgress,
-      performance: avgProgress > 0 ? avgProgress : 0,
-      attendance: attendance.find(a => a.user_id === empId)?.attendance_pct || 0,
-      quality: avgProgress > 0 ? avgProgress : 0,
-      growth: avgProgress > 0 ? avgProgress : 0
+      totalTasks: 0,
+      completedTasks: 0,
+      avgProgress: 0,
+      performance: 0,
+      attendance: 0,
+      quality: 0,
+      growth: 0,
+      managerName: "N/A"
     };
+  }
+
+  const empTasks = tasks.filter(t => t.user_id === empId);
+  const completedTasks = empTasks.filter(t => t.status === 'completed').length;
+
+  const avgProgress = empTasks.length > 0
+    ? Math.round(
+        empTasks.reduce((sum, task) => sum + (task.progress_percent || 0), 0) / empTasks.length
+      )
+    : 0;
+
+  const empAttendance = getEmployeeAttendancePct(empId);
+
+  // ✅ Use employee.manager_id (from backend)
+  const manager = getManagerById(employee.manager_id || '');
+
+  console.log(`Employee: ${employee.name} | Manager: ${manager.name}`);
+
+  return {
+    totalTasks: empTasks.length,
+    completedTasks,
+    avgProgress,
+    performance: avgProgress,
+    attendance: empAttendance,
+    quality: avgProgress,
+    growth: avgProgress,
+    managerName: manager.name,
   };
+};
+
+
 
   const departmentChartData = {
     labels: departments.map(dept => dept.replace('_', ' ').toUpperCase()),
@@ -390,7 +483,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
                       <p className="text-xs text-gray-500">Total Tasks</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-lg font-bold text-purple-600">{metrics.activeProjects}</p>
+                      <p className="text-lg font-bold text-purple-600">{projects.length}</p>
                       <p className="text-xs text-gray-500">Projects</p>
                     </div>
                   </div>
@@ -743,10 +836,10 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
               <div key={employee.id} className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-300">
                 <div className="flex items-center space-x-4 mb-4">
                   <img
-                    src={employee.avatar || 'https://via.placeholder.com/150'}
-                    alt={employee.name}
-                    className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-lg"
-                  />
+  src={employee.profile_photo || 'https://via.placeholder.com/150'}
+  alt={employee.name}
+  className="w-16 h-16 rounded-full object-cover ring-4 ring-white shadow-lg"
+/>
                   <div className="flex-1">
                     <h4 className="text-lg font-semibold text-gray-900">{employee.name}</h4>
                     <p className="text-sm text-gray-600">{getRoleDisplayName(employee.role)}</p>
@@ -774,9 +867,9 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
                         className="w-6 h-6 rounded-full object-cover"
                       />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{manager.name}</p>
-                        <p className="text-xs text-gray-600">Manager</p>
-                      </div>
+    <p className="text-sm font-medium text-gray-900">{manager?.name || 'N/A'}</p>
+    <p className="text-xs text-gray-600">Manager</p>
+  </div>
                     </div>
                   </div>
                 )}
@@ -853,7 +946,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
                 .slice(0, 10)
                 .map(employee => {
                   const metrics = getEmployeeMetrics(employee.id);
-                  const manager = managers.find(u => u.id === employee.managerId);
+                  
                   return (
                     <tr key={employee.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-4">
@@ -870,7 +963,7 @@ setTasks(tasksData.tasks); // <-- make sure this is an array
                         </div>
                       </td>
                       <td className="py-4 px-4 text-gray-900 capitalize">{employee.department.replace('_', ' ')}</td>
-                      <td className="py-4 px-4 text-gray-900">{manager?.name || 'N/A'}</td>
+                      <td className="py-4 px-4 text-gray-900">{metrics.managerName || 'N/A'}</td> {/* use managerName from metrics */}
                       <td className="py-4 px-4">
                         <div className="flex items-center space-x-2">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
