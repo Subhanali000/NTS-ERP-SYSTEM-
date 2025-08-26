@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import {
@@ -25,20 +26,54 @@ import {
   isManager,
   isTeamLead
 } from "../../utils/auth";
+interface Project {
+  id: string;
+  name: string;
+  status: 'completed' | 'pending' | 'active';
+  // other fields...
+}
+interface LeaveRequest {
+  id: string;
+  userId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  status: 'pending' | 'approved' | 'rejected';
+  // ...other fields
+}
+
+interface ProgressReport {
+  id: string;
+  title: string;
+  status: 'pending_approval' | 'approved' | 'rejected';
+  // ...other fields
+}
+interface EmployeeStats {
+  leaveBalance: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  dailyProgressStatus?: string;
+}
+
+
 
 const LEAVE_QUOTA = 20;
 
 const Sidebar: React.FC = () => {
-  const user = getCurrentUser();
-  const isDir = isDirector(user.role);
-  const isMgr = isManager(user.role);
-  const isTeamLd = isTeamLead(user.role);
+const user = getCurrentUser();
+if (!user) return null; // prevents any null access below
+
+const isDir = isDirector(user.role);
+const isMgr = isManager(user.role);
+const isTeamLd = isTeamLead(user.role);
+
+
 const [teamMetrics, setTeamMetrics] = useState<any>(null);
 const [expandedSections, setExpandedSections] = useState<string[]>(['team-progress']);
 const [filter, setFilter] = useState("all"); // all | completed | pending | active
 const [filteredProjects, setFilteredProjects] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
-  const [employeeStats, setEmployeeStats] = useState({ leaveBalance: 0 });
+const [employeeStats, setEmployeeStats] = useState<EmployeeStats>({ leaveBalance: 0 });
   const [remainingDays, setRemainingDays] = useState<number>(LEAVE_QUOTA);
   const [loading, setLoading] = useState(true);
 
@@ -73,6 +108,15 @@ const currentUserLeaves = useMemo(
   () => leaveRequests.filter(lr => lr.user_id === user?.id),
   [leaveRequests, user?.id]
 );
+
+
+const toggleSection = (section: string) => {
+  setExpandedSections(prev =>
+    prev.includes(section)
+      ? prev.filter(s => s !== section) // collapse if already expanded
+      : [...prev, section]               // expand if not included
+  );
+};
 
 // 2️⃣ Further filter only approved leaves (any level approval)
 const approvedLeaves = useMemo(
@@ -138,6 +182,48 @@ useEffect(() => {
     fetchData();
   }
 }, [user.id, isMgr]);
+useEffect(() => {
+  const fetchData = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      setLoading(true);
+
+      const endpoints = ["employees", "active-projects", "leaves", "progress-report"];
+      const requests = endpoints.map((ep) =>
+        axios.get(`http://localhost:8000/api/director/${ep}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      );
+
+      const [employeesRes, projectsRes, leavesRes, reportsRes] = await Promise.all(requests);
+
+      console.log("✅ Employees:", employeesRes.data);
+      console.log("✅ Active Projects:", projectsRes.data);
+      console.log("✅ Managers Leave Requests:", leavesRes.data);
+      console.log("✅ Progress Reports:", reportsRes.data);
+
+      // Store combined data for director view
+      setTeamMetrics({
+        employees: employeesRes.data,
+        activeProjects: projectsRes.data,
+        leaveRequests: leavesRes.data,
+        progressReports: reportsRes.data,
+      });
+    } catch (err) {
+      console.error("❌ Error fetching director overview:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isDir) {
+    console.log("🔍 Fetching overview for director:", user.id);
+    fetchData();
+  }
+}, [user.id, isDir]);
+
 
 
 useEffect(() => {
@@ -146,13 +232,14 @@ useEffect(() => {
 
     let projects = teamMetrics.projects;
 
-    if (filter === "completed") {
-      projects = projects.filter(p => p.status === "completed");
-    } else if (filter === "pending") {
-      projects = projects.filter(p => p.status === "pending");
-    } else if (filter === "active") {
-      projects = projects.filter(p => p.status === "active");
-    }
+   if (filter === "completed") {
+  projects = projects.filter((p: Project) => p.status === "completed");
+} else if (filter === "pending") {
+  projects = projects.filter((p: Project) => p.status === "pending");
+} else if (filter === "active") {
+  projects = projects.filter((p: Project) => p.status === "active");
+}
+
 
     console.log(`🔎 Projects after applying filter "${filter}":`, projects); // <-- log filtered
     setFilteredProjects(projects);
@@ -422,32 +509,51 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Quick Stats for Directors */}
-        {isDir && (
-          <div className="mt-8 px-4">
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-100">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Stats</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Total Employees</span>
-                  <span className="text-sm font-bold text-blue-600">156</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Active Projects</span>
-                  <span className="text-sm font-bold text-green-600">24</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Manager Leave Requests</span>
-                  <span className="text-sm font-bold text-orange-600">2</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Progress Reports</span>
-                  <span className="text-sm font-bold text-purple-600">18</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Quick Stats for Directors */}
+{isDir && teamMetrics && (
+  <div className="mt-8 px-4">
+    <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-100">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Stats</h3>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-600">Total Employees</span>
+          <span className="text-sm font-bold text-blue-600">
+            {teamMetrics.employees?.length || 0}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-600">Active Projects</span>
+          <span className="text-sm font-bold text-green-600">
+            {teamMetrics.activeProjects?.length || 0}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-600">Manager Leave Requests (Pending)</span>
+          <span className="text-sm font-bold text-orange-600">
+            {
+              teamMetrics.leaveRequests
+  ?.filter((leave: LeaveRequest) => leave.status === "pending")
+  .length || 0
+
+            }
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-600">Progress Reports (Pending)</span>
+          <span className="text-sm font-bold text-purple-600">
+            {
+              teamMetrics.progressReports
+  ?.filter((report: ProgressReport) => report.status === "pending_approval")
+  .length || 0
+
+            }
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
         {/* 🔹 Employee Overview Stats */}
         {!isDir && !isMgr && !isTeamLd && (
@@ -460,18 +566,16 @@ useEffect(() => {
               ) : employeeStats ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">My Tasks</span>
-                    <span className="text-sm font-bold text-blue-600">{employeeStats.totalTasks}</span>
-                  </div>
+  <span className="text-xs text-gray-600">My Tasks</span>
+  <span className="text-sm font-bold text-blue-600">{employeeStats.totalTasks || 0}</span>
+</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Completed</span>
-                    <span className="text-sm font-bold text-green-600">{employeeStats.completedTasks}</span>
-                  </div>
-                 <div className="flex items-center justify-between">
+  <span className="text-xs text-gray-600">Completed</span>
+  <span className="text-sm font-bold text-green-600">{employeeStats.completedTasks || 0}</span>
+</div>
+                <div className="flex items-center justify-between">
   <span className="text-xs text-gray-600">Daily Progress</span>
-  <span className="text-sm font-bold text-purple-600">
-    {employeeStats.dailyProgressStatus || "No Update"}
-  </span>
+  <span className="text-sm font-bold text-purple-600">{employeeStats.dailyProgressStatus || "No Update"}</span>
 </div>
                   <div className="flex items-center justify-between">
   <span className="text-xs text-gray-600">Leave Balance</span>
