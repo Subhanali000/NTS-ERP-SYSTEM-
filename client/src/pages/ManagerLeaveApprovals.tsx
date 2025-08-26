@@ -92,7 +92,7 @@ const fetchManagerAndTeamLeaves = async () => {
   }
 
   try {
-    const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/manager-team-leaves`, {
+    const response = await fetch(`http://localhost:8000/api/director/manager-team-leaves`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -129,7 +129,7 @@ const fetchManagerAndTeamLeaves = async () => {
     }
 
     try {
-     const response = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/leaves/${leaveId}/director-approve`, {
+     const response = await fetch(`http://localhost:8000/api/director/leaves/${leaveId}/director-approve`, {
 
         method: 'PATCH',
         headers: {
@@ -293,8 +293,8 @@ const fetchManagerAndTeamLeaves = async () => {
     const requester = request?.requester;
     
     if (!request || !requester) return null;
-
     const daysDifference = Math.ceil((new Date(request.endDate).getTime() - new Date(request.startDate).getTime()) / (1000 * 3600 * 24)) + 1;
+    console.log(`Requester: ${requester.name}, Avatar URL:`, requester.avatar);
 
    return (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -343,15 +343,8 @@ const fetchManagerAndTeamLeaves = async () => {
                 {requester?.department?.replace("_", " ") || "Unknown"} Department
               </p>
             </div>
-            <div className="text-right">
-              <div className="bg-white rounded-lg p-3 shadow-sm">
-                <p className="text-sm text-gray-600">Leave Balance</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {requester?.leaveBalance ?? 0}
-                </p>
-                <p className="text-xs text-gray-500">days remaining</p>
-              </div>
-            </div>
+            
+            
           </div>
         </div>
 
@@ -636,10 +629,11 @@ const fetchManagerAndTeamLeaves = async () => {
                       <div className="flex-1">
                         <div className="flex items-center space-x-4 mb-4">
                           <img
-                            src={requester?.avatar || `https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&fit=crop`}
-                            alt={requester?.name || 'User'}
-                            className="w-14 h-14 rounded-full object-cover ring-4 ring-white shadow-lg"
-                          />
+  src={requester?.avatar && requester.avatar !== '' ? requester.avatar : 'https://your-placeholder-image.png'}
+  alt={requester?.name || 'User'}
+  className="w-14 h-14 rounded-full object-cover ring-4 ring-white shadow-lg"
+/>
+
                           <div className="flex-1">
                             <h4 className="text-xl font-bold text-gray-900">{requester?.name || 'Unknown User'}</h4>
                             <p className="text-gray-600 font-medium">{getRoleDisplayName(requester?.role || 'employee')}</p>
