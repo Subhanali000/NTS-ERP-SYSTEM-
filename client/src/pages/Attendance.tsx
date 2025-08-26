@@ -32,6 +32,7 @@ interface MappedAttendance {
 function getLatestPerDate(records: AttendanceRecord[]): MappedAttendance[] {
   const grouped: Record<string, AttendanceRecord[]> = {};
 
+  // Group by date
   for (const record of records) {
     if (!grouped[record.date]) grouped[record.date] = [];
     grouped[record.date].push(record);
@@ -46,9 +47,15 @@ function getLatestPerDate(records: AttendanceRecord[]): MappedAttendance[] {
     const punchOut = latest.punch_out;
     let totalHours = 0;
 
-    if (punchIn && punchOut) {
-      const start = parseISO(`${latest.date}T${punchIn}`);
-      const end = parseISO(`${latest.date}T${punchOut}`);
+    if (punchIn) {
+      let start = parseISO(`${latest.date}T${punchIn}`);
+      let end = punchOut ? parseISO(`${latest.date}T${punchOut}`) : new Date();
+
+      // Handle overnight shifts
+      if (end < start) {
+        end.setDate(end.getDate() + 1);
+      }
+
       totalHours = differenceInMinutes(end, start) / 60;
     }
 
@@ -57,6 +64,8 @@ function getLatestPerDate(records: AttendanceRecord[]): MappedAttendance[] {
         ? totalHours >= 8
           ? 'present'
           : 'late'
+        : punchIn && !punchOut
+        ? 'in-progress'
         : 'absent';
 
     return {
@@ -88,39 +97,47 @@ const Attendance: React.FC = () => {
   const [punchInTime, setPunchInTime] = useState<string | null>(null);
 
   const fetchAttendance = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token || !user?.id) throw new Error('Unauthorized');
+  try {
+    const token = localStorage.getItem('token');
+    if (!token || !user?.id) throw new Error('Unauthorized');
 
-      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/attendance/`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const res = await fetch(`http://localhost:8000/api/employee/attendance/`, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-      if (!res.ok) throw new Error('Failed to fetch attendance data');
+    if (!res.ok) throw new Error('Failed to fetch attendance data');
 
-      const data: AttendanceRecord[] = await res.json();
-      setAttendance(data);
+    const data: AttendanceRecord[] = await res.json();
+    console.log('Raw attendance data:', data); // <-- log raw data
+    setAttendance(data);
 
-      const latestPerDay = getLatestPerDate(data);
-      const last7 = latestPerDay.slice(-7);
-      setWeeklyAttendance(last7);
+    const latestPerDay = getLatestPerDate(data);
+    console.log('Mapped latest attendance per day:', latestPerDay); // <-- log mapped data
 
-      const todayRecord = latestPerDay.find((r) => r.date === today);
+    const last7 = latestPerDay.slice(-7);
+    setWeeklyAttendance(last7);
+    console.log('Last 7 days attendance:', last7); // <-- log last 7 days
 
-      if (todayRecord?.punchIn && !todayRecord.punchOut) {
-        setIsPunchedIn(true);
-        setPunchInTime(todayRecord.punchIn);
-      } else {
-        setIsPunchedIn(false);
-        setPunchInTime(null);
-      }
-    } catch (err: any) {
-      console.error('Attendance fetch error:', err.message || err);
+    const todayRecord = latestPerDay.find((r) => r.date === today);
+    console.log('Today\'s attendance record:', todayRecord); // <-- log today record
+
+    if (todayRecord?.punchIn && !todayRecord.punchOut) {
+      setIsPunchedIn(true);
+      setPunchInTime(todayRecord.punchIn);
+      console.log('User is punched in today at:', todayRecord.punchIn);
+    } else {
+      setIsPunchedIn(false);
+      setPunchInTime(null);
+      console.log('User is NOT punched in today');
     }
-  };
+  } catch (err: any) {
+    console.error('Attendance fetch error:', err.message || err);
+  }
+};
+
 
   useEffect(() => {
     if (user?.id) fetchAttendance();
@@ -141,7 +158,7 @@ const Attendance: React.FC = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Unauthorized');
 
-      const res = await fetch(`https://nts-erp-system-629k.vercel.app/api/employee/attendance`, {
+      const res = await fetch(`http://localhost:8000/api/employee/attendance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +203,7 @@ const Attendance: React.FC = () => {
     }
 
     const res = await fetch(
-      `https://nts-erp-system-629k.vercel.app/api/employee/attendance/${today}`, // Use date instead of ID
+      `http://localhost:8000/api/employee/attendance/${today}`, // Use date instead of ID
       {
         method: 'PUT',
         headers: {
@@ -286,9 +303,9 @@ const todayAttendance = weeklyAttendance.find((r) => r.date === today);
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Weekly Total</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {totalHours.toFixed(1)}h
-              </p>
+             <p className="text-3xl font-bold text-gray-900 mt-2">
+  {totalHours ? totalHours.toFixed(1) : '0'}h
+</p>
             </div>
             <div className="p-3 rounded-lg bg-blue-100">
               <TrendingUp className="w-6 h-6 text-blue-600" />
@@ -300,9 +317,9 @@ const todayAttendance = weeklyAttendance.find((r) => r.date === today);
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Daily Average</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {avgHours.toFixed(1)}h
-              </p>
+             <p className="text-3xl font-bold text-gray-900 mt-2">
+  {avgHours ? avgHours.toFixed(1) : '0'}h
+</p>
             </div>
             <div className="p-3 rounded-lg bg-purple-100">
               <Calendar className="w-6 h-6 text-purple-600" />
