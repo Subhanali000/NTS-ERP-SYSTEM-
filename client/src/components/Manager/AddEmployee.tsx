@@ -203,7 +203,7 @@ multipartForm.append("linkedin_profile", formData.linkedin_profile_link);
       }
 
       const response = await axios.post(
-        `http://localhost:8000/api/manager/add-employee`,
+        `https://nts-erp-system-629k.vercel.app/api/manager/add-employee`,
         multipartForm,
         {
           headers: {
