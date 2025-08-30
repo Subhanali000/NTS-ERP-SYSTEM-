@@ -36,18 +36,32 @@ const DirectorDashboard: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [attendance, setAttendance] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+const handleInvalidToken = () => {
+  alert('⚠️ Session expired or invalid. Please login again.');
+  localStorage.removeItem('token');
+  localStorage.removeItem('currentUser');
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('userRoleLabel');
+  window.location.href = '/login'; // or use navigate('/login') if you have useNavigate
+};
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('token');
-        if (!token) throw new Error('No authentication token found');
+         if (!token) {
+        handleInvalidToken();
+        return;
+      }
 
         // Fetch users
         const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
         if (!usersResponse.ok) throw new Error(await usersResponse.text());
         const usersData = await usersResponse.json();
         
@@ -57,6 +71,10 @@ const DirectorDashboard: React.FC = () => {
         const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
         if (!managersResponse.ok) throw new Error(await managersResponse.text());
         const managersData = await managersResponse.json();
         setManagers(managersData);
@@ -65,6 +83,10 @@ const DirectorDashboard: React.FC = () => {
       const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
 });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
 
 if (!tasksResponse.ok) throw new Error(await tasksResponse.text());
 
@@ -79,6 +101,10 @@ setTasks(tasksData.tasks || []); // fallback if undefined
         const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
         if (!progressResponse.ok) throw new Error(await progressResponse.text());
         const progressData = await progressResponse.json();
         setProgressReports(progressData);
@@ -87,6 +113,10 @@ setTasks(tasksData.tasks || []); // fallback if undefined
         const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
         if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
         const projectsData = await projectsResponse.json();
         console.log("project data",projectsData)
@@ -96,6 +126,10 @@ setTasks(tasksData.tasks || []); // fallback if undefined
         const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         });
+        if (usersResponse.status === 401 || usersResponse.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
         if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
         const attendanceData = await attendanceResponse.json();
         console.log('attendance',attendanceData)
