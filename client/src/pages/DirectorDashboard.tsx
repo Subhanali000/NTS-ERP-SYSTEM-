@@ -44,105 +44,102 @@ const handleInvalidToken = () => {
   localStorage.removeItem('userRoleLabel');
   window.location.href = '/login'; // or use navigate('/login') if you have useNavigate
 };
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-         if (!token) {
+
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
         handleInvalidToken();
         return;
       }
 
-        // Fetch users
-        const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-        if (!usersResponse.ok) throw new Error(await usersResponse.text());
-        const usersData = await usersResponse.json();
-        
-        setEnhancedUsers(usersData);
-
-        // Fetch managers
-        const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-        if (!managersResponse.ok) throw new Error(await managersResponse.text());
-        const managersData = await managersResponse.json();
-        setManagers(managersData);
-
-        // Fetch tasks
-      const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
-  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-});
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-
-if (!tasksResponse.ok) throw new Error(await tasksResponse.text());
-
-const tasksData = await tasksResponse.json();
-console.log("tasksData from API:", tasksData);
-
-setTasks(tasksData.tasks || []); // fallback if undefined
-
-
-
-        // Fetch progress reports
-        const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-        if (!progressResponse.ok) throw new Error(await progressResponse.text());
-        const progressData = await progressResponse.json();
-        setProgressReports(progressData);
-
-        // Fetch projects
-        const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-        if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
-        const projectsData = await projectsResponse.json();
-        console.log("project data",projectsData)
-        setProjects(projectsData.active_projects || []);
-
-        // Fetch attendance
-        const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        });
-        if (usersResponse.status === 401 || usersResponse.status === 403) {
-          handleInvalidToken();
-          throw new Error("Unauthorized or expired session");
-        }
-        if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
-        const attendanceData = await attendanceResponse.json();
-        console.log('attendance',attendanceData)
-        setAttendance(attendanceData);
-      } catch (error: any) {
-        console.error('Error fetching dashboard data:', error.message);
-      } finally {
-        setLoading(false);
+      // --- Fetch users
+      const usersResponse = await fetch(`http://localhost:8000/api/director/employees`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (usersResponse.status === 401 || usersResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
       }
-    };
+      if (!usersResponse.ok) throw new Error(await usersResponse.text());
+      const usersData = await usersResponse.json();
+      setEnhancedUsers(usersData);
 
-    fetchData();
-  }, []);
+      // --- Fetch managers
+      const managersResponse = await fetch(`http://localhost:8000/api/director/managers`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (managersResponse.status === 401 || managersResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
+      }
+      if (!managersResponse.ok) throw new Error(await managersResponse.text());
+      const managersData = await managersResponse.json();
+      setManagers(managersData);
+
+      // --- Fetch tasks
+      const tasksResponse = await fetch(`http://localhost:8000/api/director/tasks`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (tasksResponse.status === 401 || tasksResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
+      }
+      if (!tasksResponse.ok) throw new Error(await tasksResponse.text());
+      const tasksData = await tasksResponse.json();
+      console.log("tasksData from API:", tasksData);
+      setTasks(tasksData.tasks || []);
+
+      // --- Fetch progress reports
+      const progressResponse = await fetch(`http://localhost:8000/api/director/progress-report`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (progressResponse.status === 401 || progressResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
+      }
+      if (!progressResponse.ok) throw new Error(await progressResponse.text());
+      const progressData = await progressResponse.json();
+      setProgressReports(progressData);
+
+      // --- Fetch projects
+      const projectsResponse = await fetch(`http://localhost:8000/api/director/active-projects`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (projectsResponse.status === 401 || projectsResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
+      }
+      if (!projectsResponse.ok) throw new Error(await projectsResponse.text());
+      const projectsData = await projectsResponse.json();
+      console.log("project data", projectsData);
+      setProjects(projectsData.active_projects || []);
+
+      // --- Fetch attendance
+      const attendanceResponse = await fetch(`http://localhost:8000/api/director/attendance`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      if (attendanceResponse.status === 401 || attendanceResponse.status === 403) {
+        handleInvalidToken();
+        throw new Error("Unauthorized or expired session");
+      }
+      if (!attendanceResponse.ok) throw new Error(await attendanceResponse.text());
+      const attendanceData = await attendanceResponse.json();
+      console.log('attendance', attendanceData);
+      setAttendance(attendanceData);
+
+    } catch (error: any) {
+      console.error('Error fetching dashboard data:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   const departments = [...new Set(enhancedUsers.map(u => u.department))];
   const employees = enhancedUsers.filter(u => u.role === 'employee' || u.role === 'intern');
