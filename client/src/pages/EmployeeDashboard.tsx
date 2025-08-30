@@ -68,12 +68,22 @@ const EmployeeDashboard: React.FC = () => {
   
   
   const [progress, setProgress] = useState<any[]>([]);
-
+const handleInvalidToken = () => {
+  alert('⚠️ Session expired or invalid. Please login again.');
+  localStorage.removeItem('token');
+  localStorage.removeItem('currentUser');
+  localStorage.removeItem('userRole');
+  localStorage.removeItem('userRoleLabel');
+  window.location.href = '/login'; // or use navigate('/login') if you have useNavigate
+};
 useEffect(() => {
   const fetchData = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token || !authUser?.id) throw new Error("User not authenticated");
+      if (!token) {
+        handleInvalidToken();
+        return;
+      }
 
       const headers = {
         "Content-Type": "application/json",
@@ -87,7 +97,10 @@ useEffect(() => {
         fetch(`https://nts-erp-system-629k.vercel.app/api/employee/leaves`, { headers }),
         fetch(`https://nts-erp-system-629k.vercel.app/api/employee/progress`, { headers }),
       ]);
-
+if (userRes.status === 401 || userRes.status === 403) {
+          handleInvalidToken();
+          throw new Error("Unauthorized or expired session");
+        }
       if (!userRes.ok || !tasksRes.ok || !leaveRes.ok || !progressRes.ok) {
         throw new Error("Failed to fetch one or more endpoints");
       }
