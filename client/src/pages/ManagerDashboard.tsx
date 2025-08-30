@@ -469,7 +469,15 @@ const [selectedReport, setSelectedReport] = useState<any>(null);
   const [showProgressReview, setShowProgressReview] = useState<string | null>(
     null
   );
-
+// ✅ Manual invalid token handler
+  const handleInvalidToken = () => {
+    alert('⚠️ Session expired or invalid. Please login again.');
+    localStorage.removeItem('token');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userRoleLabel');
+    window.location.href = '/login';
+  }; 
 useEffect(() => {
   const fetchData = async () => {
     try {
@@ -478,10 +486,10 @@ useEffect(() => {
       setUser(currentUser);
 
       const token = localStorage.getItem("token");
-      if (!token) {
-        setError("No authentication token found");
-        return;
-      }
+     if (!token) {
+          handleInvalidToken();
+          return;
+        }
 
       const config = {
         headers: {
@@ -565,7 +573,13 @@ setMembersCount(membersCount);
       setTeams(enrichedMembers);
       console.log("Team Member Count:", membersCount);
 
-    } catch (error: any) {
+    }  catch (error: any) {
+      
+      // ✅ Check for 401 / 403
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        handleInvalidToken();
+        return;
+      }
       console.error("Failed to fetch dashboard data:", error);
       setError("Failed to load dashboard data. Please try again.");
     } finally {
