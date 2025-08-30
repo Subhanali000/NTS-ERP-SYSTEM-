@@ -11,19 +11,35 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false); // Optional
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const isFormValid = email.trim() && password.trim();
- // Helper to clear invalid token
-  const handleInvalidToken = () => {
-    alert('⚠️ Session expired or invalid. Please login again.');
-    localStorage.removeItem('token');
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('userRoleLabel');
-    navigate('/login');
+
+  // ✅ embedded fetchWithAuth
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('token');
+
+    const headers = {
+      ...options.headers,
+      Authorization: token ? `Bearer ${token}` : '',
+    };
+
+    const response = await fetch(url, { ...options, headers });
+
+    if (response.status === 401) {
+      // Token expired or invalid → force logout
+      localStorage.removeItem('token');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userRoleLabel');
+
+      window.location.href = '/login'; // fallback to login page
+      return Promise.reject(new Error('Session expired. Redirecting to login.'));
+    }
+
+    return response;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,21 +65,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       // Step 2: Save token
       localStorage.setItem('token', data.token);
 
-      // Step 3: Fetch user profile
-      const profileResponse = await fetch('https://nts-erp-system-629k.vercel.app/api/user/profile', {
-        headers: {
-          Authorization: `Bearer ${data.token}`,
-        },
-      });
-
-     if (!profileResponse.ok) {
-        if (profileResponse.status === 401) {
-          handleInvalidToken();
-          return;
-        }
-        throw new Error('Failed to fetch user profile.');
-      }
-
+      // Step 3: Fetch user profile (✅ using fetchWithAuth now)
+      const profileResponse = await fetchWithAuth(
+        'https://nts-erp-system-629k.vercel.app/api/user/profile'
+      );
       const profile = await profileResponse.json();
 
       // Step 4: Normalize role
@@ -137,7 +142,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       } else {
         navigate('/');
       }
-
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
@@ -145,8 +149,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
-
-  return (
+   return (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center px-2">
   <div className="w-full max-w-lg"> {/* narrower card */}
     <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
@@ -297,4 +300,3 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 }
 
 export default Login;
-
