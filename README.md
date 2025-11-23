@@ -189,8 +189,8 @@ Create a `.env` file in the root of the project and add the following keys:
 
 ```env
 # nts nihon global official dbms access keys
-SUPABASE_URL=https://vizgnumsjzdrqbqmdrgz.supabase.co
-SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpemdudW1zanpkcnFicW1kcmd6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MTQ4ODIzOSwiZXhwIjoyMDY3MDY0MjM5fQ.hWlIHDpJosCZ5Oa4c2eDBJ73V9dTK9za3pukYE0Q9xg
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZpemdudW1zanpkcnFicW1kcmd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0ODgyMzksImV4cCI6MjA2NzA2NDIzOX0.8qD06wWHiyiH1pRZtF9glViOSoVM5-c83M3ySbnIiPE
+SUPABASE_URL=your_url.supabase.co
+SUPABASE_KEY=put_yourkey
+SUPABASE_ANON_KEY=put_your_anon_key
 
-JWT_SECRET=nts_nihon_global
+JWT_SECRET=use_own_key
