@@ -11,12 +11,17 @@ https://nts-erp-system-getl.vercel.app/login
 - **Password:** test123  
 
 ### Managers
-- **Email:** subhan@gmail.com  
-  **Password:** 123456789  
+- **Email:** manager.sales@nts.com  
+  **Password:** SecurePass456 
 
 - **Email:** ejemplo@ejemplo.mxer  
   **Password:** koma20250806  
+### Employee/Intern
+- **Email:** subhan@gmail.com  
+  **Password:** 123456789  
 
+- **Email:** teste@exemplo.us  
+  **Password:** sada20250820  
 
 ## Features
 
