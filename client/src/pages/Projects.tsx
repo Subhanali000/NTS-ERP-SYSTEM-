@@ -83,9 +83,13 @@ const loadInitialData = async () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const projects = Array.isArray(projectsRes.data)
-        ? projectsRes.data
-        : projectsRes.data.projects || [];
+      const projects = Array.isArray(raw)
+  ? raw
+  : Array.isArray(raw.active_projects)
+    ? raw.active_projects
+    : Array.isArray(raw.projects)
+      ? raw.projects
+      : [];
 
       setProjects(projects);
 
