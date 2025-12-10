@@ -228,10 +228,18 @@ const getEmployeeAttendancePct = (empId: string) => {
   empRecords.forEach(record => {
     totalDays++;
 
-    if (!record.punch_in || !record.punch_out) return;
+    if (
+  !record.punch_in ||
+  !record.punch_out ||
+  !record.punch_in.includes(':') ||
+  !record.punch_out.includes(':')
+) {
+  return; // skip invalid row
+}
 
-    const [inHours, inMinutes] = record.punch_in.split(':').map(Number);
-    const [outHours, outMinutes] = record.punch_out.split(':').map(Number);
+const [inHours, inMinutes] = record.punch_in.split(':').map(v => Number(v) || 0);
+const [outHours, outMinutes] = record.punch_out.split(':').map(v => Number(v) || 0);
+
 
     let minutesWorked = (outHours * 60 + outMinutes) - (inHours * 60 + inMinutes);
 
