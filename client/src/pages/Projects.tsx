@@ -83,15 +83,16 @@ const loadInitialData = async () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const projects = Array.isArray(raw)
-  ? raw
-  : Array.isArray(raw.active_projects)
-    ? raw.active_projects
-    : Array.isArray(raw.projects)
-      ? raw.projects
-      : [];
+   
+
+const projects =
+  raw?.active_projects ??
+  raw?.projects ??
+  (Array.isArray(raw) ? raw : []);
+
 
       setProjects(projects);
+
 
       console.groupCollapsed('📁 Active Projects Fetched');
       console.log('📦 Raw response:', projectsRes.data);
