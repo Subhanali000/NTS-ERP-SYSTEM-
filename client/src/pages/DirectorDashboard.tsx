@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+eimport React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, CheckCircle, Filter, Building, UserCheck, Briefcase, Star, Activity, Globe, UserPlus } from 'lucide-react';
 import { getCurrentUser, getRoleDisplayName } from '../utils/auth';
 import { Bar } from 'react-chartjs-2';
@@ -584,7 +584,7 @@ const getEmployeeMetrics = (empId: string) => {
             onChange={(e) => setSelectedTeam(e.target.value)}
             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="">All Teams</option>
+            <option value="">All4 Teams</option>
             {managers.map(manager => (
               <option key={manager.id} value={manager.id}>{manager.name}</option>
             ))}
