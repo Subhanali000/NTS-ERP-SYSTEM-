@@ -533,7 +533,7 @@ const getEmployeeMetrics = (empId: string) => {
         <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-indigo-100">Total34 Managers</p>
+              <p className="text-indigo-100">Total Managers</p>
               <p className="text-3xl font-bold mt-2">{managers.length}</p>
             </div>
             <Users className="w-8 h-8 text-indigo-200" />
