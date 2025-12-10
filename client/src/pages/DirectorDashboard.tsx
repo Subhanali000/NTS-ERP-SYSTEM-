@@ -56,7 +56,7 @@ useEffect(() => {
       }
 
       // --- Fetch users
-      const usersResponse = await fetch(`http://localhost:8000/api/director/employees`, {
+      const usersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/employees`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (usersResponse.status === 401 || usersResponse.status === 403) {
@@ -68,7 +68,7 @@ useEffect(() => {
       setEnhancedUsers(usersData);
 
       // --- Fetch managers
-      const managersResponse = await fetch(`http://localhost:8000/api/director/managers`, {
+      const managersResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/managers`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (managersResponse.status === 401 || managersResponse.status === 403) {
@@ -80,7 +80,7 @@ useEffect(() => {
       setManagers(managersData);
 
       // --- Fetch tasks
-      const tasksResponse = await fetch(`http://localhost:8000/api/director/tasks`, {
+      const tasksResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/tasks`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (tasksResponse.status === 401 || tasksResponse.status === 403) {
@@ -93,7 +93,7 @@ useEffect(() => {
       setTasks(tasksData.tasks || []);
 
       // --- Fetch progress reports
-      const progressResponse = await fetch(`http://localhost:8000/api/director/progress-report`, {
+      const progressResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/progress-report`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (progressResponse.status === 401 || progressResponse.status === 403) {
@@ -105,7 +105,7 @@ useEffect(() => {
       setProgressReports(progressData);
 
       // --- Fetch projects
-      const projectsResponse = await fetch(`http://localhost:8000/api/director/active-projects`, {
+      const projectsResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/active-projects`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (projectsResponse.status === 401 || projectsResponse.status === 403) {
@@ -118,7 +118,7 @@ useEffect(() => {
       setProjects(projectsData.active_projects || []);
 
       // --- Fetch attendance
-      const attendanceResponse = await fetch(`http://localhost:8000/api/director/attendance`, {
+      const attendanceResponse = await fetch(`https://nts-erp-system-629k.vercel.app/api/director/attendance`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       if (attendanceResponse.status === 401 || attendanceResponse.status === 403) {
