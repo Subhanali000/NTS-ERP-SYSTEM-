@@ -85,10 +85,16 @@ const loadInitialData = async () => {
 
    
 
+const raw = projectsRes.data;
+
 const projects =
-  raw?.active_projects ??
-  raw?.projects ??
-  (Array.isArray(raw) ? raw : []);
+  Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw.active_projects)
+      ? raw.active_projects
+      : Array.isArray(raw.projects)
+        ? raw.projects
+        : [];
 
 
       setProjects(projects);
