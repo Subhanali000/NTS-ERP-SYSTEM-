@@ -12,6 +12,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -151,14 +152,32 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
    return (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center px-2">
-    <button
+   
+  <div className="w-full max-w-lg"> {/* narrower card */}
+    <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
+      <div className="p-7 md:p-9"> {/* reduced padding */}
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-2xl">N</span>
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">
+              Welcome to NTS ERP
+            </h1>
+            <p className="text-lg text-gray-600 max-w-md mx-auto">
+              Sign in with your company email to access your personalized dashboard
+            </p>
+          </div>
+<button
   type="button"
   onClick={() => setShowCredentials(true)}
   className="mt-4 text-sm text-purple-600 hover:text-purple-800 font-medium"
 >
   Show Demo Login Credentials
 </button>
-    {showCredentials && (
+ {showCredentials && (
   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md relative">
       <button
@@ -193,26 +212,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       </div>
     </div>
   </div>
-
-
-  <div className="w-full max-w-lg"> {/* narrower card */}
-    <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-      <div className="p-7 md:p-9"> {/* reduced padding */}
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-2xl">N</span>
-              </div>
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">
-              Welcome to NTS ERP
-            </h1>
-            <p className="text-lg text-gray-600 max-w-md mx-auto">
-              Sign in with your company email to access your personalized dashboard
-            </p>
-          </div>
-
+)}
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 rounded-xl border border-red-200">
