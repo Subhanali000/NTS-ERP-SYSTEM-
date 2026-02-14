@@ -151,6 +151,50 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
    return (
   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center px-2">
+    <button
+  type="button"
+  onClick={() => setShowCredentials(true)}
+  className="mt-4 text-sm text-purple-600 hover:text-purple-800 font-medium"
+>
+  Show Demo Login Credentials
+</button>
+    {showCredentials && (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md relative">
+      <button
+        onClick={() => setShowCredentials(false)}
+        className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+      >
+        ✕
+      </button>
+
+      <h2 className="text-xl font-bold mb-4 text-center">
+        Demo Login Credentials
+      </h2>
+
+      <div className="space-y-3 text-sm">
+        <div>
+          <strong>Director</strong>
+          <p>Email: devesh@example.com</p>
+          <p>Password: test123</p>
+        </div>
+
+        <div>
+          <strong>Manager</strong>
+          <p>Email: manager.sales@nts.com</p>
+          <p>Password: SecurePass456</p>
+        </div>
+
+        <div>
+          <strong>Employee</strong>
+          <p>Email: subhan@gmail.com</p>
+          <p>Password: 123456789</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <div className="w-full max-w-lg"> {/* narrower card */}
     <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
       <div className="p-7 md:p-9"> {/* reduced padding */}
