@@ -173,7 +173,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 <button
   type="button"
   onClick={() => setShowCredentials(true)}
-  className="mt-4 text-sm text-purple-600 hover:text-purple-800 font-medium"
+ className="mt-4 text-sm font-medium text-red-700 bg-red-100 border border-red-300 rounded-lg px-4 py-2 hover:bg-red-200"
 >
   Show Demo Login Credentials
 </button>
